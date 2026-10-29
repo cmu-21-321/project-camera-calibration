@@ -1,28 +1,54 @@
-import mathlib
+import MathLib
 
 open Matrix
 
 abbrev M3 := Matrix (Fin 3) (Fin 3) ℝ
 abbrev V3 := Fin 3 → ℝ
 
-structure IsIntrinsic (K : M3) : Prop where
-  α : 0 < K 0 0
-  β : 0 < K 1 1
-  γ : 0 < K 0 1
-  u₀ : 0 < K 0 2
-  u₁ : 0 < K 1 2
-  zero_1_0 : K 1 0 = 0
-  zero_2_0 : K 2 0 = 0
-  zero_2_1 : K 2 1 = 0
-  one_2_2 : K 2 2 = 1
+structure Camera where
+  a : ℝ
+  b : ℝ
+  c : ℝ
+  d : ℝ
+  e : ℝ
+  ha : 0 < a
+  hb : 0 < b
+
+def Camera.U (K : Camera) : M3 :=
+  !![K.a, K.b, K.c;
+     0, K.d, K.e;
+     0, 0, 1]
+
+structure HomographyM3 where
+  h₁ : V3
+  h₂ : V3
+  h₃ : V3
+  normalized : h₃ 2 = 1
 
 structure Orthonorm (u v : V3) : Prop where
-  self_first : dotProduct u u = 1
-  self_second : dotProduct u u = 1
-  cross : dotProduct u v = 0
+  norm_first : dotProduct u u = 1
+  norm_second : dotProduct v v = 1
+  dot_first_second : dotProduct u v = 0
 
-def ConsistentHomographyPair (A H : M3) : Prop :=
-  ∃ (λ : ℝ) (r₁ r₂ t : V3), (Orthonorm r₁ r₂) ∧ H = λ * ![r₁ r₂ t]
+def ConsistentHomographyPair (K : Camera) (H : HomographyM3) : Prop :=
+  ∃ (s : ℝ), s ≠ 0 ∧ ∃ r₁ r₂ t : V3,
+  (Orthonorm r₁ r₂) ∧
+  K.U *ᵥ H.h₁ = s • r₁ ∧
+  K.U *ᵥ H.h₂ = s • r₂ ∧
+  K.U *ᵥ H.h₃ = s • t
 
-theorem zhang_three_view_uniqueness (h : ∀ H ∈ [H₁, H₂, H₃], ConsistentHomographyPair A H) A = A' := by
+def Satisfies (B : M3) (H : HomographyM3) : Prop :=
+  dotProduct H.h₁ (B *ᵥ H.h₂) = 0 ∧
+  dotProduct H.h₁ (B *ᵥ H.h₁) = dotProduct H.h₂ (B *ᵥ H.h₂)
+
+def UniqueToScaleFactor (Hs : List HomographyM3) :=
+  ∀ B B' : M3, B = Bᵀ → B' = B'ᵀ →
+  (∀ H ∈ Hs, Satisfies B H) → (∀ H ∈ Hs, Satisfies B' H)
+  → B ≠ 0 → ∃ s : ℝ, B' = s • B
+
+theorem zhang_three_view_uniqueness
+(hUnique : UniqueToScaleFactor [H₁, H₂, H₃])
+(h : ∀ H ∈ [H₁, H₂, H₃], ConsistentHomographyPair K H)
+(h' : ∀ H ∈ [H₁, H₂, H₃], ConsistentHomographyPair K' H)
+: K.U = K'.U := by
   sorry
