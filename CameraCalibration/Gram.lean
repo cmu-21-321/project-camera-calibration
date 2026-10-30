@@ -18,7 +18,6 @@ lemma gram_symm (U : M3) : (Uᵀ * U)ᵀ = Uᵀ * U := by
 lemma gram_ne_zero (K : Camera) : (K.Uᵀ * K.U) ≠ 0 := by
   intro h
   have ha := K.ha
-  have hb := K.hb
   have hM := gram_eq K
   rw [hM] at h
   have hA2 : K.a^2 = 0 := congr_fun (congr_fun h 0) 0
