@@ -3,7 +3,6 @@ import CameraCalibration.Recovery
 
 open Matrix
 
-
 theorem zhang_three_view_uniqueness
 (hUnique : UniqueToScaleFactor [H₁, H₂, H₃])
 (h : ∀ H ∈ [H₁, H₂, H₃], ConsistentHomographyPair K H)
