@@ -10,7 +10,7 @@ lemma gram_eq (K : Camera) : K.Uᵀ * K.U =
     ext i j
     fin_cases i <;> fin_cases j <;>
       simp [Camera.U, Matrix.mul_apply, Fin.sum_univ_three] <;>
-      ring_nf
+      ring
 
 lemma gram_symm (U : M3) : (Uᵀ * U)ᵀ = Uᵀ * U := by
   simp only [transpose_mul, transpose_transpose]
@@ -21,5 +21,4 @@ lemma gram_ne_zero (K : Camera) : (K.Uᵀ * K.U) ≠ 0 := by
   have hM := gram_eq K
   rw [hM] at h
   have hA2 : K.a^2 = 0 := congr_fun (congr_fun h 0) 0
-  have hA2_nonneg : K.a^2 > 0 := by positivity
-  linarith
+  nlinarith
