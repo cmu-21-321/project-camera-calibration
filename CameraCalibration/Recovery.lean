@@ -8,7 +8,7 @@ lemma equal_under_scalar_mul {K K' : Camera} (c : ℝ)
 (h : K'.Uᵀ * K'.U = c • (K.Uᵀ * K.U)) :
  K.U = K'.U := by
 
-  rw [gram_eq, gram_eq] at h
+  simp only [gram_eq] at h
   have h00 : K'.a^2 = c • K.a^2 := congrFun (congrFun h 0) 0
   have h01 : K'.a * K'.b = c • (K.a * K.b) := congrFun (congrFun h 0) 1
   have h02 : K'.a * K'.c = c • (K.a * K.c) := congrFun (congrFun h 0) 2

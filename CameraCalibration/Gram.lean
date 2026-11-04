@@ -22,3 +22,6 @@ lemma gram_ne_zero (K : Camera) : (K.Uᵀ * K.U) ≠ 0 := by
   rw [hM] at h
   have hA2 : K.a^2 = 0 := congr_fun (congr_fun h 0) 0
   nlinarith
+
+lemma gram_dot (U : M3) (u v : V3) : dotProduct u ((Uᵀ * U) *ᵥ v) = dotProduct (U *ᵥ u) (U *ᵥ v) := by
+  rw [←Matrix.mulVec_mulVec, dotProduct_transpose_mulVec, dotProduct_comm]
