@@ -9,6 +9,7 @@ theorem params_unique {a b c d e a' b' c' d' e' s : ℝ}
     (h12 : b' * c' + d' * e' = s • (b * c + d * e))
     (h22 : c' ^ 2 + e' ^ 2 + 1 = s • (c ^ 2 + e ^ 2 + 1)) :
     a' = a ∧ b' = b ∧ c' = c ∧ d' = d ∧ e' = e := by
+
     simp only [smul_eq_mul] at h00 h01 h02 h11 h12 h22
 
     have hs : 0 < s := by

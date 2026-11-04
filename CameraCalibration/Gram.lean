@@ -10,7 +10,7 @@ lemma gram_eq (K : Camera) : K.Uᵀ * K.U =
     ext i j
     fin_cases i <;> fin_cases j <;>
       simp [Camera.U, Matrix.mul_apply, Fin.sum_univ_three] <;>
-      ring
+        ring
 
 lemma gram_symm (U : M3) : (Uᵀ * U)ᵀ = Uᵀ * U := by
   simp only [transpose_mul, transpose_transpose]

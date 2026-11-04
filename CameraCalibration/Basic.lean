@@ -12,7 +12,7 @@ structure Camera where
   d : ℝ
   e : ℝ
   ha : 0 < a
-  hb : 0 < b
+  hd : 0 < d
 
 def Camera.U (K : Camera) : M3 :=
   !![K.a, K.b, K.c;
