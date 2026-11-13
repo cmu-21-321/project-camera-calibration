@@ -19,6 +19,11 @@ def Camera.U (K : Camera) : M3 :=
      0, K.d, K.e;
      0, 0, 1]
 
+noncomputable def Camera.A (K : Camera) : M3 :=
+  !![1 / K.a, -K.b / (K.a * K.d), (K.b * K.e - K.c * K.d) / (K.a * K.d);
+     0, 1 / K.d, -K.e / K.d;
+     0, 0, 1]
+
 structure HomographyM3 where
   h₁ : V3
   h₂ : V3
