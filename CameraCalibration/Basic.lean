@@ -24,11 +24,25 @@ noncomputable def Camera.A (K : Camera) : M3 :=
      0, 1 / K.d, -K.e / K.d;
      0, 0, 1]
 
+lemma Camera.A_mul_U (K : Camera) : K.A * K.U = 1 := by
+  have ha := K.ha.ne'
+  have hb := K.hd.ne'
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [Camera.A, Camera.U, Matrix.mul_apply, Fin.sum_univ_three] <;>
+    field_simp <;> ring
+
+lemma Camera.U_mul_A (K : Camera) : K.U * K.A = 1 := by
+  exact mul_eq_one_comm.mp K.A_mul_U
+
 structure HomographyM3 where
   h₁ : V3
   h₂ : V3
   h₃ : V3
   normalized : h₃ 2 = 1
+
+def Camera.normal (K : Camera) (H : HomographyM3) : V3 :=
+  (K.U *ᵥ H.h₁) ⨯₃ (K.U *ᵥ H.h₂)
 
 structure Orthonorm (u v : V3) : Prop where
   norm_first : dotProduct u u = 1
