@@ -35,6 +35,14 @@ lemma Camera.A_mul_U (K : Camera) : K.A * K.U = 1 := by
 lemma Camera.U_mul_A (K : Camera) : K.U * K.A = 1 := by
   exact mul_eq_one_comm.mp K.A_mul_U
 
+lemma Camera.eq_conj (K : Camera) (B : M3) : B = K.Uᵀ * (K.Aᵀ * B * K.A) * K.U := by
+  calc
+    B = 1 * B * (K.A * K.U) := by rw [Camera.A_mul_U, mul_one, one_mul]
+    _ = 1ᵀ * B * (K.A * K.U) := by rw [transpose_one]
+    _ = (K.A * K.U)ᵀ * B * (K.A * K.U) := by rw [Camera.A_mul_U]
+    _ = K.Uᵀ * K.Aᵀ * B * (K.A * K.U) := by rw [transpose_mul]
+    _ = K.Uᵀ * (K.Aᵀ * B * K.A) * K.U := by simp only [mul_assoc]
+
 structure HomographyM3 where
   h₁ : V3
   h₂ : V3
@@ -43,6 +51,12 @@ structure HomographyM3 where
 
 def Camera.normal (K : Camera) (H : HomographyM3) : V3 :=
   (K.U *ᵥ H.h₁) ⨯₃ (K.U *ᵥ H.h₂)
+
+lemma Camera.normal_eq {K : Camera} {H : HomographyM3} {s : ℝ} {r₁ r₂ : V3}
+  (h1 : K.U *ᵥ H.h₁ = s • r₁)
+  (h2 : K.U *ᵥ H.h₂ = s • r₂) : K.normal H = (s * s) • (r₁ ⨯₃ r₂) := by
+  simp [Camera.normal, h1, h2, smul_smul]
+
 
 structure Orthonorm (u v : V3) : Prop where
   norm_first : dotProduct u u = 1
