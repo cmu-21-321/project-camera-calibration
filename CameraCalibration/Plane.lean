@@ -1,3 +1,44 @@
 import CameraCalibration.Basic
 
 open Matrix
+
+-- all vectors perpendicular to the normal of the plane
+-- rw r₁ᵀ D r₂ = 0 via h_1^T B h_2 = 0 =>
+-- (s A r_1)^T B (s A r_2) = 0 =>
+-- r_1^T A^T B A r_2 = 0
+-- D = A^T B A
+-- => r₁ᵀ D r₂
+def VanishesOn (D : M3) (n : V3) : Prop :=
+  ∀v : V3, dotProduct v n = 0 → dotProduct v (D *ᵥ v) = 0
+
+lemma sub_smul_one_symm {E : M3} (μ : ℝ) (hE : Eᵀ = E) :
+    (E - μ • 1)ᵀ = E - μ • 1 := by
+  sorry
+
+lemma bilin_zero_of_vanishesOn {D : M3} {n x y : V3} (hD : Dᵀ = D)
+    (hv : VanishesOn D n) (hx : dotProduct x n = 0) (hy : dotProduct y n = 0) :
+    dotProduct x (D *ᵥ y) = 0 := by
+  sorry
+
+lemma mem_span_of_perp {r₁ r₂ x : V3} (hr : Orthonorm r₁ r₂)
+    (hx : dotProduct x (r₁ ⨯₃ r₂) = 0) :
+    x = dotProduct x r₁ • r₁ + dotProduct x r₂ • r₂ := by
+  sorry
+
+lemma form_on_span {E : M3} {r₁ r₂ x : V3} (hr : Orthonorm r₁ r₂) (hE : Eᵀ = E)
+    (c12 : dotProduct r₁ (E *ᵥ r₂) = 0)
+    (c11 : dotProduct r₁ (E *ᵥ r₁) = dotProduct r₂ (E *ᵥ r₂))
+    (hx : x = dotProduct x r₁ • r₁ + dotProduct x r₂ • r₂) :
+    dotProduct x ((E - dotProduct r₁ (E *ᵥ r₁) • 1) *ᵥ x) = 0 := by
+  sorry
+
+lemma mu_eq {D : M3} {n₁ n₂ : V3} {μ₁ μ₂ : ℝ} (h₁₂ : n₁ ⨯₃ n₂ ≠ 0)
+    (v₁ : VanishesOn (D - μ₁ • 1) n₁) (v₂ : VanishesOn (D - μ₂ • 1) n₂) :
+    μ₁ = μ₂ := by
+  sorry
+
+theorem eq_zero_of_vanishesOn_three {D : M3} {n₁ n₂ n₃ : V3} (hD : Dᵀ = D)
+    (h₁₂ : n₁ ⨯₃ n₂ ≠ 0) (h₁₃ : n₁ ⨯₃ n₃ ≠ 0) (h₂₃ : n₂ ⨯₃ n₃ ≠ 0)
+    (v₁ : VanishesOn D n₁) (v₂ : VanishesOn D n₂) (v₃ : VanishesOn D n₃) :
+    D = 0 := by
+  sorry

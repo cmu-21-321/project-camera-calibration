@@ -1,6 +1,7 @@
 import CameraCalibration.Basic
 import CameraCalibration.Satisfies
 import CameraCalibration.Recovery
+import CameraCalibration.Unique
 
 open Matrix
 
