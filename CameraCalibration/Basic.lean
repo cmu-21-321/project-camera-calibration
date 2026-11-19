@@ -2,8 +2,8 @@ import Mathlib
 
 open Matrix
 
-abbrev M3 := Matrix (Fin 3) (Fin 3) ℝ
-abbrev V3 := Fin 3 → ℝ
+notation "M3" => Matrix (Fin 3) (Fin 3) ℝ
+notation "V3" => Fin 3 → ℝ
 
 structure Camera where
   a : ℝ
@@ -57,7 +57,7 @@ lemma Camera.normal_eq {K : Camera} {H : HomographyM3} {s : ℝ} {r₁ r₂ : V3
   (h2 : K.U *ᵥ H.h₂ = s • r₂) : K.normal H = (s * s) • (r₁ ⨯₃ r₂) := by
   simp [Camera.normal, h1, h2, smul_smul]
 
-
+@[mk_iff]
 structure Orthonorm (u v : V3) : Prop where
   norm_first : dotProduct u u = 1
   norm_second : dotProduct v v = 1
@@ -70,6 +70,7 @@ def ConsistentHomographyPair (K : Camera) (H : HomographyM3) : Prop :=
   K.U *ᵥ H.h₂ = s • r₂ ∧
   K.U *ᵥ H.h₃ = s • t
 
+@[mk_iff] -- make this a struct
 def Satisfies (B : M3) (H : HomographyM3) : Prop :=
   dotProduct H.h₁ (B *ᵥ H.h₂) = 0 ∧
   dotProduct H.h₁ (B *ᵥ H.h₁) = dotProduct H.h₂ (B *ᵥ H.h₂)

@@ -13,12 +13,24 @@ def VanishesOn (D : M3) (n : V3) : Prop :=
 
 lemma sub_smul_one_symm {E : M3} (μ : ℝ) (hE : Eᵀ = E) :
     (E - μ • 1)ᵀ = E - μ • 1 := by
-  sorry
+  rw [transpose_sub, hE, transpose_smul, transpose_one]
 
 lemma bilin_zero_of_vanishesOn {D : M3} {n x y : V3} (hD : Dᵀ = D)
     (hv : VanishesOn D n) (hx : dotProduct x n = 0) (hy : dotProduct y n = 0) :
     dotProduct x (D *ᵥ y) = 0 := by
-  sorry
+  have hxy : dotProduct (x + y) n = 0 := by
+    simp [add_dotProduct, hx, hy]
+  have hsum := hv (x + y) hxy
+  have hxx := hv x hx
+  have hyy := hv y hy
+  simp only [mulVec_add, add_dotProduct, dotProduct_add, hxx, hyy] at hsum
+  have hswap : dotProduct y (D *ᵥ x) = dotProduct x (D *ᵥ y) := by
+    calc
+      dotProduct y (D *ᵥ x) = dotProduct (y ᵥ* D) x := dotProduct_mulVec y D x
+      _ = dotProduct (y ᵥ* Dᵀ) x := by rw [hD]
+      _ = dotProduct (D *ᵥ y) x := by rw [vecMul_transpose]
+      _ = dotProduct x (D *ᵥ y) := by rw [dotProduct_comm]
+  linarith
 
 lemma mem_span_of_perp {r₁ r₂ x : V3} (hr : Orthonorm r₁ r₂)
     (hx : dotProduct x (r₁ ⨯₃ r₂) = 0) :

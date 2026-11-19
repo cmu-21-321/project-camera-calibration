@@ -47,4 +47,15 @@ theorem unique_of_nonparallel {K : Camera} {H₁ H₂ H₃ : HomographyM3}
     (h₁₃ : K.normal H₁ ⨯₃ K.normal H₃ ≠ 0)
     (h₂₃ : K.normal H₂ ⨯₃ K.normal H₃ ≠ 0) :
     UniqueToScaleFactor [H₁, H₂, H₃] := by
-  sorry
+  intro B B' hB hB' hH hH' hN
+  obtain ⟨μ, hμ⟩ := eq_smul_gram hB h hH h₁₂ h₁₃ h₂₃
+  obtain ⟨μ', hμ'⟩ := eq_smul_gram hB' h hH' h₁₂ h₁₃ h₂₃
+  rw [hμ, hμ']
+  have hμn : μ ≠ 0 := by
+    intro h0
+    apply hN
+    rw [hμ, h0]
+    simp
+  use (μ' / μ)
+  rw [smul_smul]
+  field_simp
