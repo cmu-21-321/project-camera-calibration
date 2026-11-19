@@ -5,7 +5,8 @@ open Matrix
 
 lemma conj_dot (A B : M3) (u v : V3) :
     dotProduct u ((Aᵀ * B * A) *ᵥ v) = dotProduct (A *ᵥ u) (B *ᵥ (A *ᵥ v)) := by
-  sorry
+  simp only [←Matrix.mulVec_mulVec, dotProduct_transpose_mulVec, dotProduct_comm]
+
 
 lemma conj_symm {B : M3} {K : Camera} (hB : B = Bᵀ) :
   (K.Aᵀ * B * K.A)ᵀ = K.Aᵀ * B * K.A := by
@@ -21,11 +22,22 @@ lemma view_constraints {K : Camera} {H : HomographyM3} {B : M3} {s : ℝ} {r₁ 
     dotProduct r₁ ((K.Aᵀ * B * K.A) *ᵥ r₂) = 0 ∧
     dotProduct r₁ ((K.Aᵀ * B * K.A) *ᵥ r₁) = dotProduct r₂ ((K.Aᵀ * B * K.A) *ᵥ r₂) := by
   obtain ⟨c1, c2⟩ := hs
-  have e1 : H.h₁ = s • (K.A *ᵥ r₁) := sorry
-  have e2 : H.h₂ = s • (K.A *ᵥ r₂) := sorry
+  have e1 : H.h₁ = s • (K.A *ᵥ r₁) := by
+    have := congrArg (fun v => K.A *ᵥ v) h1
+    simp only [mulVec_mulVec, K.A_mul_U, one_mulVec, mulVec_smul] at this
+    assumption
+  have e2 : H.h₂ = s • (K.A *ᵥ r₂) := by
+    have := congrArg (fun v => K.A *ᵥ v) h2
+    simp only [mulVec_mulVec, K.A_mul_U, one_mulVec, mulVec_smul] at this
+    assumption
+  simp only [conj_dot]
   constructor
-  · sorry
-  · sorry
+  · rw [e1, e2] at c1
+    simp only [mulVec_smul, smul_dotProduct, dotProduct_smul, smul_eq_mul] at c1
+    simpa [hs0] using c1
+  · rw [e1, e2] at c2
+    simp only [mulVec_smul, smul_dotProduct, dotProduct_smul, smul_eq_mul] at c2
+    simpa [hs0] using c2
 
 lemma plane_form {K : Camera} {H : HomographyM3} {B : M3} (hB : B = Bᵀ)
     (hc : ConsistentHomographyPair K H) (hs : Satisfies B H) :
