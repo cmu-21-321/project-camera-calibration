@@ -7,7 +7,6 @@ lemma conj_dot (A B : M3) (u v : V3) :
     dotProduct u ((Aᵀ * B * A) *ᵥ v) = dotProduct (A *ᵥ u) (B *ᵥ (A *ᵥ v)) := by
   simp only [←Matrix.mulVec_mulVec, dotProduct_transpose_mulVec, dotProduct_comm]
 
-
 lemma conj_symm {B : M3} {K : Camera} (hB : B = Bᵀ) :
   (K.Aᵀ * B * K.A)ᵀ = K.Aᵀ * B * K.A := by
   simp [hB.symm, transpose_mul, mul_assoc]
@@ -51,7 +50,23 @@ theorem eq_smul_gram {K : Camera} {H₁ H₂ H₃ : HomographyM3} {B : M3} (hB :
     (h₁₃ : K.normal H₁ ⨯₃ K.normal H₃ ≠ 0)
     (h₂₃ : K.normal H₂ ⨯₃ K.normal H₃ ≠ 0) :
     ∃ μ : ℝ, B = μ • (K.Uᵀ * K.U) := by
-  sorry
+  obtain ⟨μ₁, v₁⟩ := plane_form hB (h H₁ (by simp)) (hs H₁ (by simp))
+  obtain ⟨μ₂, v₂⟩ := plane_form hB (h H₂ (by simp)) (hs H₂ (by simp))
+  obtain ⟨μ₃, v₃⟩ := plane_form hB (h H₃ (by simp)) (hs H₃ (by simp))
+  have hμ₁μ₂ : μ₁ = μ₂ := mu_eq h₁₂ v₁ v₂
+  have hμ₂μ₃ : μ₂ = μ₃ := mu_eq h₂₃ v₂ v₃
+  have hμ₁μ₃ : μ₁ = μ₃ := hμ₁μ₂.trans hμ₂μ₃
+  subst hμ₂μ₃ hμ₁μ₃
+  have hSymm : K.Aᵀ * B * K.A - μ₁ • 1 = (K.Aᵀ * B * K.A - μ₁ • 1)ᵀ := by
+    simp [sub_smul_one_symm μ₁ (conj_symm hB)]
+  have hE0 : (K.Aᵀ * B * K.A) - μ₁ • 1 = 0 :=
+    eq_zero_of_vanishesOn_three hSymm.symm h₁₂ h₁₃ h₂₃ v₁ v₂ v₃
+  have hD : (K.Aᵀ * B * K.A) = μ₁ • 1  := sub_eq_zero.mp hE0
+  use μ₁
+  calc
+    B = K.Uᵀ * (K.Aᵀ * B * K.A) * K.U := K.eq_conj B
+    _ = μ₁ • (K.Uᵀ * K.U) := by simp [hD]
+
 
 theorem unique_of_nonparallel {K : Camera} {H₁ H₂ H₃ : HomographyM3}
     (h : ∀ H ∈ [H₁, H₂, H₃], ConsistentHomographyPair K H)

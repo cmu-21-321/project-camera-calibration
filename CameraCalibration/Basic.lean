@@ -70,7 +70,7 @@ def ConsistentHomographyPair (K : Camera) (H : HomographyM3) : Prop :=
   K.U *ᵥ H.h₂ = s • r₂ ∧
   K.U *ᵥ H.h₃ = s • t
 
-@[mk_iff] -- make this a struct
+--@[mk_iff] -- make this a struct
 def Satisfies (B : M3) (H : HomographyM3) : Prop :=
   dotProduct H.h₁ (B *ᵥ H.h₂) = 0 ∧
   dotProduct H.h₁ (B *ᵥ H.h₁) = dotProduct H.h₂ (B *ᵥ H.h₂)
