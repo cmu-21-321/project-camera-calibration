@@ -37,12 +37,34 @@ lemma mem_span_of_perp {r₁ r₂ x : V3} (hr : Orthonorm r₁ r₂)
     x = dotProduct x r₁ • r₁ + dotProduct x r₂ • r₂ := by
   sorry
 
+lemma dot_swap_of_symm {E : M3} (x y : V3) (hE : Eᵀ = E) :
+   dotProduct x (E *ᵥ y) = dotProduct y (E *ᵥ x) := by
+  exact IsSymm.dotProduct_mulVec_comm hE
+
 lemma form_on_span {E : M3} {r₁ r₂ x : V3} (hr : Orthonorm r₁ r₂) (hE : Eᵀ = E)
     (c12 : dotProduct r₁ (E *ᵥ r₂) = 0)
     (c11 : dotProduct r₁ (E *ᵥ r₁) = dotProduct r₂ (E *ᵥ r₂))
     (hx : x = dotProduct x r₁ • r₁ + dotProduct x r₂ • r₂) :
     dotProduct x ((E - dotProduct r₁ (E *ᵥ r₁) • 1) *ᵥ x) = 0 := by
-  sorry
+  set a := dotProduct x r₁
+  set b := dotProduct x r₂
+  set μ := dotProduct r₁ (E *ᵥ r₁) with hμ
+  simp only [sub_mulVec, smul_mulVec, one_mulVec, dotProduct_sub,
+   dotProduct_mulVec, dotProduct_smul, smul_eq_mul]
+  have hxx : dotProduct x x = a^2 + b^2 := by
+    simp only [hx, dotProduct_add, dotProduct_smul,
+      hr.norm_second, hr.dot_first_second, hr.norm_first, dotProduct_comm,
+      smul_eq_mul, mul_one, mul_zero, add_zero, zero_add]
+    ring
+  have hxE : dotProduct x (E *ᵥ x) = a^2 * μ + b^2 * μ := by
+    rw [hx, hμ]
+    simp only [mulVec_add, mulVec_smul, add_dotProduct, smul_dotProduct, smul_eq_mul,
+      dotProduct_add, dotProduct_smul, smul_eq_mul]
+    rw [←c11, dot_swap_of_symm r₂ r₁ hE, c12]
+    simp only [mul_zero, add_zero, zero_add]
+    ring
+  rw [←dotProduct_mulVec, (dot_swap_of_symm x x hE).symm, hxE, hxx]
+  ring
 
 lemma mu_eq {D : M3} {n₁ n₂ : V3} {μ₁ μ₂ : ℝ} (h₁₂ : n₁ ⨯₃ n₂ ≠ 0)
     (v₁ : VanishesOn (D - μ₁ • 1) n₁) (v₂ : VanishesOn (D - μ₂ • 1) n₂) :
@@ -56,7 +78,8 @@ lemma mu_eq {D : M3} {n₁ n₂ : V3} {μ₁ μ₂ : ℝ} (h₁₂ : n₁ ⨯₃
     exact dot_cross_self n₁ n₂
   specialize v₁ _ hP1
   specialize v₂ _ hP2
-  simp only [sub_mulVec, smul_mulVec, one_mulVec, dotProduct_sub, dotProduct_mulVec, dotProduct_smul, smul_eq_mul] at v₁ v₂
+  simp only [sub_mulVec, smul_mulVec, one_mulVec, dotProduct_sub,
+    dotProduct_mulVec, dotProduct_smul, smul_eq_mul] at v₁ v₂
   have hwwn0 : dotProduct w w ≠ 0 := by simp [ne_eq, dotProduct_self_eq_zero, h₁₂]
   have e1 : (μ₁ - μ₂) * (dotProduct w w) = 0 := by linarith
   have e2 : μ₁ - μ₂ = 0 := by exact (mul_eq_zero_iff_right hwwn0).mp e1
