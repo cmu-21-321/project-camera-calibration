@@ -41,7 +41,13 @@ lemma view_constraints {K : Camera} {H : HomographyM3} {B : M3} {s : ℝ} {r₁ 
 lemma plane_form {K : Camera} {H : HomographyM3} {B : M3} (hB : B = Bᵀ)
     (hc : ConsistentHomographyPair K H) (hs : Satisfies B H) :
     ∃ μ : ℝ, VanishesOn (K.Aᵀ * B * K.A - μ • 1) (K.normal H) := by
-  sorry
+  obtain ⟨s, hs0, r₁, r₂, t, hr, h1, h2, _⟩ := hc
+  obtain ⟨c11, c12⟩ := view_constraints hs0 h1 h2 hs
+  refine ⟨(dotProduct r₁ ((K.Aᵀ * B * K.A) *ᵥ r₁)), ?_⟩
+  intro x hx
+  rw [K.normal_eq h1 h2, dotProduct_smul, smul_eq_mul] at hx
+  have hx' := by simpa [hs0] using hx
+  exact form_on_span hr (conj_symm hB) c11 c12 (mem_span_of_perp hr hx')
 
 theorem eq_smul_gram {K : Camera} {H₁ H₂ H₃ : HomographyM3} {B : M3} (hB : B = Bᵀ)
     (h : ∀ H ∈ [H₁, H₂, H₃], ConsistentHomographyPair K H)

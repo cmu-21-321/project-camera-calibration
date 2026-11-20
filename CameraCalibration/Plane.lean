@@ -47,7 +47,21 @@ lemma form_on_span {E : M3} {r₁ r₂ x : V3} (hr : Orthonorm r₁ r₂) (hE : 
 lemma mu_eq {D : M3} {n₁ n₂ : V3} {μ₁ μ₂ : ℝ} (h₁₂ : n₁ ⨯₃ n₂ ≠ 0)
     (v₁ : VanishesOn (D - μ₁ • 1) n₁) (v₂ : VanishesOn (D - μ₂ • 1) n₂) :
     μ₁ = μ₂ := by
-  sorry
+  set w := n₁ ⨯₃ n₂ with hw
+  have hP1 : dotProduct w n₁ = 0 := by
+    rw [dotProduct_comm]
+    exact dot_self_cross n₁ n₂
+  have hP2 : dotProduct w n₂ = 0 := by
+    rw [dotProduct_comm]
+    exact dot_cross_self n₁ n₂
+  specialize v₁ _ hP1
+  specialize v₂ _ hP2
+  simp only [sub_mulVec, smul_mulVec, one_mulVec, dotProduct_sub, dotProduct_mulVec, dotProduct_smul, smul_eq_mul] at v₁ v₂
+  have hwwn0 : dotProduct w w ≠ 0 := by simp [ne_eq, dotProduct_self_eq_zero, h₁₂]
+  have e1 : (μ₁ - μ₂) * (dotProduct w w) = 0 := by linarith
+  have e2 : μ₁ - μ₂ = 0 := by exact (mul_eq_zero_iff_right hwwn0).mp e1
+  linarith
+
 
 theorem eq_zero_of_vanishesOn_three {D : M3} {n₁ n₂ n₃ : V3} (hD : Dᵀ = D)
     (h₁₂ : n₁ ⨯₃ n₂ ≠ 0) (h₁₃ : n₁ ⨯₃ n₃ ≠ 0) (h₂₃ : n₂ ⨯₃ n₃ ≠ 0)
