@@ -35,7 +35,36 @@ lemma bilin_zero_of_vanishesOn {D : M3} {n x y : V3} (hD : Dᵀ = D)
 lemma mem_span_of_perp {r₁ r₂ x : V3} (hr : Orthonorm r₁ r₂)
     (hx : dotProduct x (r₁ ⨯₃ r₂) = 0) :
     x = dotProduct x r₁ • r₁ + dotProduct x r₂ • r₂ := by
-  sorry
+  set a := dotProduct x r₁
+  set b := dotProduct x r₂
+  set y := x - a • r₁ - b • r₂ with hy
+  have hy1 : dotProduct r₁ y = 0 := by
+    rw [dotProduct_sub, dotProduct_smul, dotProduct_comm, sub_dotProduct,
+      smul_dotProduct, smul_eq_mul, hr.dot_first_second,
+      hr.norm_first, mul_one, smul_eq_mul, mul_zero, sub_zero]
+    ring
+  have hy2 : dotProduct r₂ y = 0 := by
+    rw [dotProduct_sub, dotProduct_smul, dotProduct_comm, sub_dotProduct,
+      smul_dotProduct, smul_eq_mul, hr.dot_first_second,
+      hr.norm_second, smul_eq_mul, mul_zero, sub_zero]
+    ring
+  have hy0 : dotProduct (r₁ ⨯₃ r₂) y = 0 := by
+    simp only [hy, dotProduct_comm, sub_dotProduct, hx, smul_dotProduct, dot_self_cross,
+     smul_eq_mul, mul_zero, sub_self, dot_cross_self]
+  have hn1 : (r₁ ⨯₃ r₂) ⬝ᵥ (r₁ ⨯₃ r₂) = 1 := by
+    rw [cross_dot_cross, hr.dot_first_second, hr.norm_first, hr.norm_second]
+    ring
+  have hc0 : r₁ ⨯₃ r₂ ⨯₃ y = 0 := by
+    rw [cross_cross_eq_smul_sub_smul, hy1, hy2, zero_smul, zero_smul]
+    ring
+  have hyy : dotProduct y y = 0 := by
+    have hC := cross_dot_cross (r₁ ⨯₃ r₂) y (r₁ ⨯₃ r₂) y
+    rw [hc0, hn1, hy0] at hC
+    rw [zero_dotProduct, one_mul, zero_mul, sub_zero] at hC
+    exact hC.symm
+  have hy0 : y = 0 := dotProduct_star_self_eq_zero.mp hyy
+  rw [hy, sub_sub, sub_eq_zero] at hy0
+  exact hy0
 
 lemma dot_swap_of_symm {E : M3} (x y : V3) (hE : Eᵀ = E) :
    dotProduct x (E *ᵥ y) = dotProduct y (E *ᵥ x) := by
