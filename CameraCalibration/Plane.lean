@@ -114,9 +114,51 @@ lemma mu_eq {D : M3} {n₁ n₂ : V3} {μ₁ μ₂ : ℝ} (h₁₂ : n₁ ⨯₃
   have e2 : μ₁ - μ₂ = 0 := by exact (mul_eq_zero_iff_right hwwn0).mp e1
   linarith
 
+lemma decomp (n₁ n₂ x : V3) :
+    ((n₁ ⨯₃ n₂) ⬝ᵥ (n₁ ⨯₃ n₂)) • x =
+      (x ⬝ᵥ n₁) • (n₂ ⨯₃ (n₁ ⨯₃ n₂)) - (x ⬝ᵥ n₂) • (n₁ ⨯₃ (n₁ ⨯₃ n₂))
+        + (x ⬝ᵥ (n₁ ⨯₃ n₂)) • (n₁ ⨯₃ n₂) := by
+  simp_rw [cross_apply, vec3_dotProduct]
+  ext i
+  fin_cases i <;>
+    · dsimp
+      ring
+
 
 theorem eq_zero_of_vanishesOn_three {D : M3} {n₁ n₂ n₃ : V3} (hD : Dᵀ = D)
     (h₁₂ : n₁ ⨯₃ n₂ ≠ 0) (h₁₃ : n₁ ⨯₃ n₃ ≠ 0) (h₂₃ : n₂ ⨯₃ n₃ ≠ 0)
     (v₁ : VanishesOn D n₁) (v₂ : VanishesOn D n₂) (v₃ : VanishesOn D n₃) :
     D = 0 := by
+  set w := n₁ ⨯₃ n₂ with hw
+  set a := n₁ ⨯₃ w
+  set b := n₂ ⨯₃ w
+  set s := dotProduct w w
+  set κ := dotProduct a (D *ᵥ b) with hκ
+  have h : ∀ x y: V3, s * s * (x ⬝ᵥ (D *ᵥ y)) = -κ * ((x ⬝ᵥ n₁) * (y ⬝ᵥ n₂) + (x ⬝ᵥ n₂) * (y ⬝ᵥ n₁)) := by
+    intro x y
+    have hwn1 : dotProduct w n₁ = 0 := by rw [dotProduct_comm, dot_self_cross]
+    have hwn2 : dotProduct w n₂ = 0 := by rw [dotProduct_comm, dot_cross_self]
+    have han1 : dotProduct a n₁ = 0 := by rw [dotProduct_comm, dot_self_cross]
+    have hbn2 : dotProduct b n₂ = 0 := by rw [dotProduct_comm, dot_self_cross]
+
+    have h1wa := bilin_zero_of_vanishesOn hD v₁ hwn1 han1
+    have h1aw := bilin_zero_of_vanishesOn hD v₁ han1 hwn1
+    have h1aa := bilin_zero_of_vanishesOn hD v₁ han1 han1
+    have h1ww := bilin_zero_of_vanishesOn hD v₁ hwn1 hwn1
+    have h2wb := bilin_zero_of_vanishesOn hD v₂ hwn2 hbn2
+    have h2bw := bilin_zero_of_vanishesOn hD v₂ hbn2 hwn2
+    have h2ww := bilin_zero_of_vanishesOn hD v₂ hwn2 hwn2
+    have h2bb := bilin_zero_of_vanishesOn hD v₂ hbn2 hbn2
+
+    have κSymm : b ⬝ᵥ D *ᵥ a = κ := dot_swap_of_symm b a hD
+    have : s * s * x ⬝ᵥ D *ᵥ y = dotProduct (s • x) (D *ᵥ (s • y)) := by
+      simp [smul_dotProduct, dotProduct_smul, mulVec_smul, smul_eq_mul]
+      ring
+    have hx : s • x = (x ⬝ᵥ n₁) • b - (x ⬝ᵥ n₂) • a + (x ⬝ᵥ w) • w := decomp n₁ n₂ x
+    have hy : s • y = (y ⬝ᵥ n₁) • b - (y ⬝ᵥ n₂) • a + (y ⬝ᵥ w) • w := decomp n₁ n₂ y
+    rw [this, hx, hy]
+    simp only [mulVec_add, mulVec_sub, mulVec_smul, add_dotProduct, dotProduct_add,
+    sub_dotProduct, dotProduct_sub, smul_dotProduct, dotProduct_smul, smul_eq_mul,
+    h1wa, h1aw, h1aa, h1ww, h2wb, h2bw, h2bb, κSymm,←hκ]
+    ring
   sorry
