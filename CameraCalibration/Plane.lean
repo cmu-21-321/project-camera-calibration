@@ -161,4 +161,48 @@ theorem eq_zero_of_vanishesOn_three {D : M3} {n₁ n₂ n₃ : V3} (hD : Dᵀ = 
     sub_dotProduct, dotProduct_sub, smul_dotProduct, dotProduct_smul, smul_eq_mul,
     h1wa, h1aw, h1aa, h1ww, h2wb, h2bw, h2bb, κSymm,←hκ]
     ring
-  sorry
+
+  have hP3 : ∀ x : V3, x ⬝ᵥ n₃ = 0 → κ * ((x ⬝ᵥ n₁) * (x ⬝ᵥ n₂)) = 0 := by
+    intro x hx
+    have h0 := v₃ x hx
+    have hk := h x x
+    linear_combination (1/2) * hk - (s*s/2) * h0
+
+  set u := n₃ ⨯₃ (n₁ ⨯₃ n₃) with hu
+  set v := n₃ ⨯₃ (n₂ ⨯₃ n₃) with hv
+
+  have hu3 : u ⬝ᵥ n₃ = 0 := by rw [dotProduct_comm, dot_self_cross]
+  have hv3 : v ⬝ᵥ n₃ = 0 := by rw [dotProduct_comm, dot_self_cross]
+  have hu1 : u ⬝ᵥ n₁ ≠ 0 := by
+    rw [hu, dotProduct_comm, triple_product_permutation, triple_product_permutation]
+    simp [dotProduct_self_eq_zero, h₁₃]
+  have hv2 : v ⬝ᵥ n₂ ≠ 0 := by
+    rw [hv, dotProduct_comm, triple_product_permutation, triple_product_permutation]
+    simp [dotProduct_self_eq_zero, h₂₃]
+
+  have hκ0 : κ = 0 := by
+    by_contra hnκ
+
+    have eu := hP3 u hu3
+    have ev := hP3 v hv3
+    have euv := hP3 (u + v) (by rw [add_dotProduct, hu3, hv3, zero_add])
+    have hu2 : u ⬝ᵥ n₂ = 0 := by simpa [hnκ, hu1] using eu
+    have hv1 : v ⬝ᵥ n₁ = 0 := by simpa [hnκ, hv2] using ev
+    rw [add_dotProduct, add_dotProduct, hu2, hv1, add_zero, zero_add] at euv
+    exact mul_ne_zero hnκ (mul_ne_zero hu1 hv2) euv
+
+  have hs : s ≠ 0 := by
+    change dotProduct w w ≠ 0
+    simp [dotProduct_self_eq_zero, h₁₂]
+
+  have hall : ∀ x y : V3, x ⬝ᵥ (D *ᵥ y) = 0 := by
+    intro x y
+    have hk := h x y
+    rw [hκ0, neg_zero, zero_mul] at hk
+    rcases mul_eq_zero.mp hk with h' | h'
+    · exact absurd h' (mul_ne_zero hs hs)
+    · exact h'
+
+  ext i j
+  have hij := hall (Pi.single i 1) (Pi.single j 1)
+  simpa [mulVec_single_one, single_one_dotProduct] using hij
