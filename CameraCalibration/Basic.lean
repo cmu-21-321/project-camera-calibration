@@ -1,10 +1,46 @@
-import Mathlib
+/-
+Copyright (c) 2026 TODO. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: TODO
+-/
+module
+
+public import Mathlib.Analysis.InnerProductSpace.PiL2
+public import Mathlib.Basic.Real.Basic
+public import Mathlib.LinearAlgebra.CrossProduct
+public import Mathlib.LinearAlgebra.Matrix.InvariantBasisNumber
+public import Mathlib.LinearAlgebra.Matrix.NonsingularInverse
+public import Mathlib.LinearAlgebra.Matrix.Symmetric
+public import Mathlib.RingTheory.FiniteType
+public import Mathlib.Tactic.FieldSimp
+public import Mathlib.Tactic.Ring
+
+/-!
+# TODO: title
+
+TODO: one-paragraph summary of this file.
+
+## Main definitions
+
+* `CameraCalibration.Camera`: TODO
+* `CameraCalibration.ConsistentHomographyPair`: TODO
+* `CameraCalibration.Satisfies`: TODO
+
+## References
+
+* TODO
+-/
+
+@[expose] public section
 
 open Matrix
 
 notation "M3" => Matrix (Fin 3) (Fin 3) ℝ
 notation "V3" => Fin 3 → ℝ
 
+namespace CameraCalibration
+
+/-- TODO -/
 structure Camera where
   a : ℝ
   b : ℝ
@@ -14,68 +50,64 @@ structure Camera where
   ha : 0 < a
   hd : 0 < d
 
+/-- TODO -/
 def Camera.U (K : Camera) : M3 :=
   !![K.a, K.b, K.c;
      0, K.d, K.e;
      0, 0, 1]
 
-noncomputable def Camera.A (K : Camera) : M3 :=
-  !![1 / K.a, -K.b / (K.a * K.d), (K.b * K.e - K.c * K.d) / (K.a * K.d);
-     0, 1 / K.d, -K.e / K.d;
-     0, 0, 1]
+lemma Camera.det_U (K : Camera) : K.U.det = K.a * K.d := by
+  simp [Camera.U, Matrix.det_fin_three]
 
-lemma Camera.A_mul_U (K : Camera) : K.A * K.U = 1 := by
-  have ha := K.ha.ne'
-  have hb := K.hd.ne'
-  ext i j
-  fin_cases i <;> fin_cases j <;>
-    simp [Camera.A, Camera.U, Matrix.mul_apply, Fin.sum_univ_three] <;>
-    field_simp <;> ring
+lemma Camera.isUnit_det_U (K : Camera) : IsUnit K.U.det := by
+  rw [K.det_U]
+  exact (mul_pos K.ha K.hd).ne'.isUnit
 
-lemma Camera.U_mul_A (K : Camera) : K.U * K.A = 1 := by
-  exact mul_eq_one_comm.mp K.A_mul_U
+lemma Camera.inv_mul_U (K : Camera) : K.U⁻¹ * K.U = 1 :=
+  Matrix.nonsing_inv_mul (A := K.U) K.isUnit_det_U
 
-lemma Camera.eq_conj (K : Camera) (B : M3) : B = K.Uᵀ * (K.Aᵀ * B * K.A) * K.U := by
+lemma Camera.U_mul_inv (K : Camera) : K.U * K.U⁻¹ = 1 :=
+  Matrix.mul_nonsing_inv (A := K.U) K.isUnit_det_U
+
+lemma Camera.eq_conj (K : Camera) (B : M3) : B = K.Uᵀ * ((K.U⁻¹)ᵀ * B * K.U⁻¹) * K.U := by
   calc
-    B = 1 * B * (K.A * K.U) := by rw [Camera.A_mul_U, mul_one, one_mul]
-    _ = 1ᵀ * B * (K.A * K.U) := by rw [transpose_one]
-    _ = (K.A * K.U)ᵀ * B * (K.A * K.U) := by rw [Camera.A_mul_U]
-    _ = K.Uᵀ * K.Aᵀ * B * (K.A * K.U) := by rw [transpose_mul]
-    _ = K.Uᵀ * (K.Aᵀ * B * K.A) * K.U := by simp only [mul_assoc]
+    B = 1 * B * (K.U⁻¹ * K.U) := by rw [K.inv_mul_U, mul_one, one_mul]
+    _ = 1ᵀ * B * (K.U⁻¹ * K.U) := by rw [transpose_one]
+    _ = (K.U⁻¹ * K.U)ᵀ * B * (K.U⁻¹ * K.U) := by rw [K.inv_mul_U]
+    _ = K.Uᵀ * (K.U⁻¹)ᵀ * B * (K.U⁻¹ * K.U) := by rw [transpose_mul]
+    _ = K.Uᵀ * ((K.U⁻¹)ᵀ * B * K.U⁻¹) * K.U := by simp only [mul_assoc]
 
-structure HomographyM3 where
-  h₁ : V3
-  h₂ : V3
-  h₃ : V3
-  normalized : h₃ 2 = 1
+/-- TODO -/
+def Camera.normal (K : Camera) (H : M3) : V3 :=
+  (K.U *ᵥ Hᵀ 0) ⨯₃ (K.U *ᵥ Hᵀ 1)
 
-def Camera.normal (K : Camera) (H : HomographyM3) : V3 :=
-  (K.U *ᵥ H.h₁) ⨯₃ (K.U *ᵥ H.h₂)
-
-lemma Camera.normal_eq {K : Camera} {H : HomographyM3} {s : ℝ} {r₁ r₂ : V3}
-  (h1 : K.U *ᵥ H.h₁ = s • r₁)
-  (h2 : K.U *ᵥ H.h₂ = s • r₂) : K.normal H = (s * s) • (r₁ ⨯₃ r₂) := by
+lemma Camera.normal_eq {K : Camera} {H : M3} {s : ℝ} {r₁ r₂ : V3}
+    (h1 : K.U *ᵥ Hᵀ 0 = s • r₁) (h2 : K.U *ᵥ Hᵀ 1 = s • r₂) :
+    K.normal H = (s * s) • (r₁ ⨯₃ r₂) := by
   simp [Camera.normal, h1, h2, smul_smul]
 
+/-- TODO -/
 @[mk_iff]
-structure Orthonorm (u v : V3) : Prop where
-  norm_first : dotProduct u u = 1
-  norm_second : dotProduct v v = 1
-  dot_first_second : dotProduct u v = 0
+structure ConsistentHomographyPair (K : Camera) (H : M3) (s : ℝ) (r₁ r₂ : V3) : Prop where
+  ne_zero : s ≠ 0
+  orthonormal : Orthonormal ℝ ![WithLp.toLp 2 r₁, WithLp.toLp 2 r₂]
+  mulVec_col_zero : K.U *ᵥ Hᵀ 0 = s • r₁
+  mulVec_col_one : K.U *ᵥ Hᵀ 1 = s • r₂
 
-def ConsistentHomographyPair (K : Camera) (H : HomographyM3) : Prop :=
-  ∃ (s : ℝ), s ≠ 0 ∧ ∃ r₁ r₂ t : V3,
-  (Orthonorm r₁ r₂) ∧
-  K.U *ᵥ H.h₁ = s • r₁ ∧
-  K.U *ᵥ H.h₂ = s • r₂ ∧
-  K.U *ᵥ H.h₃ = s • t
+lemma dotProduct_eq_of_orthonormal {r₁ r₂ : V3}
+    (h : Orthonormal ℝ ![WithLp.toLp 2 r₁, WithLp.toLp 2 r₂]) :
+    r₁ ⬝ᵥ r₁ = 1 ∧ r₂ ⬝ᵥ r₂ = 1 ∧ r₁ ⬝ᵥ r₂ = 0 := by
+  have h' := orthonormal_iff_ite.mp h
+  have h00 := h' 0 0
+  have h11 := h' 1 1
+  simp only [Matrix.cons_val_zero, Matrix.cons_val_one] at h00 h11
+  rw [EuclideanSpace.inner_toLp_toLp] at h00 h11
+  refine ⟨by simpa using h00, by simpa using h11, ?_⟩
+  simpa [EuclideanSpace.inner_toLp_toLp] using h' 1 0
 
---@[mk_iff] -- make this a struct
-def Satisfies (B : M3) (H : HomographyM3) : Prop :=
-  dotProduct H.h₁ (B *ᵥ H.h₂) = 0 ∧
-  dotProduct H.h₁ (B *ᵥ H.h₁) = dotProduct H.h₂ (B *ᵥ H.h₂)
+/-- TODO -/
+def Satisfies (B : M3) (H : M3) : Prop :=
+  Hᵀ 0 ⬝ᵥ (B *ᵥ Hᵀ 1) = 0 ∧
+    Hᵀ 0 ⬝ᵥ (B *ᵥ Hᵀ 0) = Hᵀ 1 ⬝ᵥ (B *ᵥ Hᵀ 1)
 
-def UniqueToScaleFactor (Hs : List HomographyM3) :=
-  ∀ B B' : M3, B = Bᵀ → B' = B'ᵀ →
-  (∀ H ∈ Hs, Satisfies B H) → (∀ H ∈ Hs, Satisfies B' H)
-  → B ≠ 0 → ∃ s : ℝ, B' = s • B
+end CameraCalibration

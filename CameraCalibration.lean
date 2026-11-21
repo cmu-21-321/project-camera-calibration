@@ -1,2 +1,4 @@
-import CameraCalibration.Main
-import CameraCalibration.Satisfies
+module
+
+public import CameraCalibration.Main
+public import CameraCalibration.Satisfies
