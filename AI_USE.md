@@ -8,7 +8,7 @@
   `Recovery.lean`, `Satisfies.lean`, `Main.lean`, `Basic.lean`). I also typed, debugged and completed most of the proofs in the extension
   myself, working lemma by lemma.
 - **Claude's main contributions:**
-  - the mathematical argument for the extension (uniqueness from three non-parallel views), and help with the
+  - significant aid in the mathematical argument for the extension (uniqueness from three non-parallel views), and help with the
     Lean statements of its lemmas;
   - minor hints and for some of the harder ones some rough outlines for the extension proofs
   - more help on the final part of one proof (`eq_zero_of_vanishesOn_three`);
@@ -16,8 +16,8 @@
 
 ## 1. Base formalization: uniqueness assuming the constraints determine `B` up to scale
 
-- I wrote the definitions (`Camera`, `Camera.U`, the consistency condition, `Satisfies`, and the previous homography, orthonormality, etc. conditions) and the
-  base results including: `gram_eq`, `params_unique`, `U_eq_of_gram_eq_smul` and `gram_dot` and did the proofs
+- I wrote the definitions (`Camera`, `Camera.U`, the consistency conditions, `Satisfies`, and the previous homography, orthonormality, etc. conditions) and the
+  base results including: `gram_eq`, `params_unique`, `U_eq_of_gram_eq_smul`, `gram_dot`, the now missing `Gram.lean` results, and `Recovery.lean` and did the proofs
 - there were a lot more proofs in gram but in final pass found mathlib lemmas that could replace them for simplicity
 
 ## 2. Extension: uniqueness from three pairwise non-parallel views
@@ -26,7 +26,7 @@ This covers `Plane.lean` and `Unique.lean`.
 
 **The mathematics.** Zhang's paper assumed that the constraints determine the matrix `B` up to scale. I
 wanted to extend the formalization and prove this from a geometric condition instead.
-- **Strategy (Claude and me).** I pointed out that `U` represents `A⁻¹`. Claude and I collaborated on the
+- **Strategy (Claude and me).** Claude and I collaborated on the
   strategy that made the most sense to tackle this where we decided on: conjugate to `C = U⁻ᵀ B U⁻¹`, and show that a symmetric matrix whose quadratic form
   vanishes on three pairwise non-parallel planes is zero.
 
@@ -47,6 +47,7 @@ At my request, and with my review of each change, Claude carried out a cleanup p
 - style fixes, renames, and docstring and copyright templates;
 - minimal imports and conversion to the Lean module system;
 - splitting long proofs into private helper lemmas, keeping the proof steps;
+- docstring formatting and style, i.e. adding the copywrite statements mathlib requires
 - definition changes to align with Mathlib:
   - `IsSymm` for symmetry;
   - Mathlib's matrix inverse `K.U⁻¹` in place of `Camera.A`;
@@ -59,4 +60,4 @@ New things written in this pass to refactor the code:
 
 ## 4. Report
 
-I had Claude help me make the LaTeX template I used so that it could compile the lean font correctly.
+I had Claude help me make the LaTeX template I used so that it could compile the lean font correctly then some basic revision stuff to ensure clarity and grammar was fine.
