@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 TODO. All rights reserved.
+Copyright (c) 2026 Roman Reddick. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: TODO
+Authors: Roman Reddick
 -/
 module
 
@@ -16,19 +16,27 @@ public import Mathlib.Tactic.FieldSimp
 public import Mathlib.Tactic.Ring
 
 /-!
-# TODO: title
+# Basic
 
-TODO: one-paragraph summary of this file.
+This file contains the basics and definitions of the key structures that are
+needed to define this camera calibration problem, starting with most importantly
+the `Camera` itself. This also includes key lemmas regarding the matrix representation
+of the camera itself (as the inverse `U`). This also defines the notion of normality
+to the camera plane with a corresponding homography along with the necessary assumptions
+about homographies themselves.
 
 ## Main definitions
 
-* `CameraCalibration.Camera`: TODO
-* `CameraCalibration.ConsistentHomographyPair`: TODO
-* `CameraCalibration.Satisfies`: TODO
+* `CameraCalibration.Camera`: camera data structure with values representing its inverse
+* `CameraCalibration.ConsistentHomographyPair`: defines what it means for a homography to be
+consistent with a camera
+* `CameraCalibration.Satisfies`: defines conditions that a solution matrix
+`B` must satisfy for a homography
 
 ## References
 
-* TODO
+* “A Flexible New Technique for Camera Calibration” (2000)
+
 -/
 
 @[expose] public section
@@ -40,7 +48,8 @@ notation "V3" => Fin 3 → ℝ
 
 namespace CameraCalibration
 
-/-- TODO -/
+/-- The representation of a camera using its inverse as an upper triangular
+matrix with positive first 2 diagonal entries. -/
 structure Camera where
   a : ℝ
   b : ℝ
@@ -50,7 +59,7 @@ structure Camera where
   ha : 0 < a
   hd : 0 < d
 
-/-- TODO -/
+/-- Direct translation of `Camera` into its inverse matrix form. -/
 def Camera.U (K : Camera) : M3 :=
   !![K.a, K.b, K.c;
      0, K.d, K.e;
@@ -77,7 +86,7 @@ lemma Camera.eq_conj (K : Camera) (B : M3) : B = K.Uᵀ * ((K.U⁻¹)ᵀ * B * K
     _ = K.Uᵀ * (K.U⁻¹)ᵀ * B * (K.U⁻¹ * K.U) := by rw [transpose_mul]
     _ = K.Uᵀ * ((K.U⁻¹)ᵀ * B * K.U⁻¹) * K.U := by simp only [mul_assoc]
 
-/-- TODO -/
+/-- Get the normal of the plane determined by the camera inverse intrinsic and the homography. -/
 def Camera.normal (K : Camera) (H : M3) : V3 :=
   (K.U *ᵥ Hᵀ 0) ⨯₃ (K.U *ᵥ Hᵀ 1)
 
@@ -86,7 +95,9 @@ lemma Camera.normal_eq {K : Camera} {H : M3} {s : ℝ} {r₁ r₂ : V3}
     K.normal H = (s * s) • (r₁ ⨯₃ r₂) := by
   simp [Camera.normal, h1, h2, smul_smul]
 
-/-- TODO -/
+/-- Key definition which says that a homography and camera pair preserves the following properties:
+s ≠ 0, r₁ and r₂ are orthonormal, and U times columns 0 and 1 of H equals s • r₁ and s • r₂.
+This comes definitionally with the construction of homography matrices in this field. -/
 @[mk_iff]
 structure ConsistentHomographyPair (K : Camera) (H : M3) (s : ℝ) (r₁ r₂ : V3) : Prop where
   ne_zero : s ≠ 0
@@ -105,7 +116,10 @@ lemma dotProduct_eq_of_orthonormal {r₁ r₂ : V3}
   refine ⟨by simpa using h00, by simpa using h11, ?_⟩
   simpa [EuclideanSpace.inner_toLp_toLp] using h' 1 0
 
-/-- TODO -/
+/-- Our condition for a solution `B` to preserve necessary constraints for given `H`.
+(1) h₁ᵀBh₂ = 0
+(2) h₁ᵀBh₁ = h₂ᵀBh₂
+as laid out by Zhang -/
 def Satisfies (B : M3) (H : M3) : Prop :=
   Hᵀ 0 ⬝ᵥ (B *ᵥ Hᵀ 1) = 0 ∧
     Hᵀ 0 ⬝ᵥ (B *ᵥ Hᵀ 0) = Hᵀ 1 ⬝ᵥ (B *ᵥ Hᵀ 1)

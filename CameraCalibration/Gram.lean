@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 TODO. All rights reserved.
+Copyright (c) 2026 Roman Reddick. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: TODO
+Authors: Roman Reddick
 -/
 module
 
@@ -9,13 +9,16 @@ public import CameraCalibration.Basic
 public import Mathlib.Algebra.Order.Star.Real
 
 /-!
-# TODO: title
+# Gram
 
-TODO: one-paragraph summary of this file.
+This file contains a few helping lemmas for matrix products of the form
+`UᵀU` along with some that are specific to the structure of the camera-defined matrices
+which appear often in this formalization.
 
 ## Main results
 
-* `CameraCalibration.gram_eq`: TODO
+* `CameraCalibration.gram_eq`: proves the matrix result of the inverse camera matrix transpose
+with itself
 -/
 
 public section
@@ -33,6 +36,17 @@ lemma gram_eq (K : Camera) : K.Uᵀ * K.U =
   fin_cases i <;> fin_cases j <;>
     simp [Camera.U, Matrix.mul_apply, Fin.sum_univ_three] <;>
     ring
+
+lemma gram_symm (U : M3) : (Uᵀ * U)ᵀ = Uᵀ * U := by
+  simp only [transpose_mul, transpose_transpose]
+
+lemma gram_ne_zero (K : Camera) : (K.Uᵀ * K.U) ≠ 0 := by
+  intro h
+  have ha := K.ha
+  have hM := gram_eq K
+  rw [hM] at h
+  have hA2 : K.a ^ 2 = 0 := congr_fun (congr_fun h 0) 0
+  nlinarith
 
 lemma gram_dot (U : M3) (u v : V3) :
     u ⬝ᵥ ((Uᵀ * U) *ᵥ v) = (U *ᵥ u) ⬝ᵥ (U *ᵥ v) := by

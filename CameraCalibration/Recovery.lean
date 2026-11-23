@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 TODO. All rights reserved.
+Copyright (c) 2026 Roman Reddick. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: TODO
+Authors: Roman Reddick
 -/
 module
 
@@ -9,13 +9,16 @@ public import CameraCalibration.Gram
 public import CameraCalibration.Params
 
 /-!
-# TODO: title
+# Recovery
 
-TODO: one-paragraph summary of this file.
+This file gives a key final lemma to prove the result by unpacking the product
+`K'.Uᵀ * K'.U = c • (K.Uᵀ * K.U)` and uses the `params_unique` lemma to prove that this
+implies `K.U = K'.U`.
 
 ## Main results
 
-* `CameraCalibration.U_eq_of_gram_eq_smul`: TODO
+* `CameraCalibration.U_eq_of_gram_eq_smul`: Given two cameras and an arbitrary constant such that
+`K'.Uᵀ * K'.U = c • (K.Uᵀ * K.U)`, then we can prove that `K.U = K'.U`
 -/
 
 public section

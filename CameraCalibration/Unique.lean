@@ -1,20 +1,25 @@
 /-
-Copyright (c) 2026 TODO. All rights reserved.
+Copyright (c) 2026 Roman Reddick. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: TODO
+Authors: Roman Reddick
 -/
 module
 
 public import CameraCalibration.Plane
 
 /-!
-# TODO: title
+# Unique
 
-TODO: one-paragraph summary of this file.
+This file is all about proving the important `eq_smul_gram` theorem which
+tells us that given our set of consistent homography pairs for our 3 non-parallel
+planes, our symmetric solution matrix `B` can be written as a scalar multiplication
+of our inverse camera intrinsic matrices so `B = μUᵀU`. Other private lemmas exist
+to help prove this result.
 
 ## Main results
 
-* `CameraCalibration.eq_smul_gram`: TODO
+* `CameraCalibration.eq_smul_gram`: proves that given our problem setup and solution `B`
+we can write it using the camera matrices as described above.
 -/
 
 public section

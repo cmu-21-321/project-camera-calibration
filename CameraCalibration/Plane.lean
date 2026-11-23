@@ -1,7 +1,7 @@
 /-
-Copyright (c) 2026 TODO. All rights reserved.
+Copyright (c) 2026 Roman Reddick. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: TODO
+Authors: Roman Reddick
 -/
 module
 
@@ -12,18 +12,26 @@ public import Mathlib.LinearAlgebra.Matrix.DotProduct
 public import Mathlib.Tactic.LinearCombination
 
 /-!
-# TODO: title
+# Plane
 
-TODO: one-paragraph summary of this file.
+This file includes the bulk of the logic which does the heavy lifting behind this proof. We
+work with quadratic forms and do manipulations with vectors to eventually show that if
+`D` vanishes on all 3 planes we create in the key theorem `eq_zero_of_vanishesOn_three`, then we can
+conclude that `D = 0`.
 
 ## Main definitions
 
-* `CameraCalibration.VanishesOn`: TODO
+* `CameraCalibration.VanishesOn`: We define this idea of vanishing using the quadratic form
+for a matrix of D for some vector n and for any vector perpendicular to the normal of the plane,
+then D(v, v) = 0
 
 ## Main results
 
-* `CameraCalibration.eq_of_vanishesOn_sub_smul_one`: TODO
-* `CameraCalibration.eq_zero_of_vanishesOn_three`: TODO
+* `CameraCalibration.eq_of_vanishesOn_sub_smul_one`: given two non-parallel planes and vanishing
+forms `D - μ₁I` and `D - μ₂I`, then `μ₁ = μ₂`
+* `CameraCalibration.eq_zero_of_vanishesOn_three`: given the vanishing and the constraints
+of nonparallel planes in the problem, the quadratic form `D` is forced to be zero so the
+conjugated `B` is `μI` which is what `eq_smul_gram` needs
 -/
 
 @[expose] public section
@@ -32,19 +40,9 @@ open Matrix
 
 namespace CameraCalibration
 
--- all vectors perpendicular to the normal of the plane
--- rw r₁ᵀ D r₂ = 0 via h_1^T B h_2 = 0 =>
--- (s A r_1)^T B (s A r_2) = 0 =>
--- r_1^T A^T B A r_2 = 0
--- D = A^T B A
--- => r₁ᵀ D r₂
-/-- TODO -/
+/-- `VanishesOn D n` holds when v and n are perpendicular, and says that D(v, v) = 0 -/
 def VanishesOn (D : M3) (n : V3) : Prop :=
   ∀ v : V3, v ⬝ᵥ n = 0 → v ⬝ᵥ (D *ᵥ v) = 0
-
-private lemma cross_dot_cross_ne_zero {v w : V3} (h : v ⨯₃ w ≠ 0) :
-    (v ⨯₃ w) ⬝ᵥ (v ⨯₃ w) ≠ 0 := by
-  simp [dotProduct_self_eq_zero, h]
 
 private lemma bilin_zero_of_vanishesOn {D : M3} {n x y : V3} (hD : D.IsSymm)
     (hv : VanishesOn D n) (hx : x ⬝ᵥ n = 0) (hy : y ⬝ᵥ n = 0) :
@@ -55,8 +53,12 @@ private lemma bilin_zero_of_vanishesOn {D : M3} {n x y : V3} (hD : D.IsSymm)
   have hxx := hv x hx
   have hyy := hv y hy
   simp only [mulVec_add, add_dotProduct, dotProduct_add, hxx, hyy] at hsum
-  have hswap : y ⬝ᵥ (D *ᵥ x) = x ⬝ᵥ (D *ᵥ y) :=
-    hD.dotProduct_mulVec_comm
+  have hswap : y ⬝ᵥ (D *ᵥ x) = x ⬝ᵥ (D *ᵥ y) := by
+    calc
+      y ⬝ᵥ (D *ᵥ x) = (y ᵥ* D) ⬝ᵥ x := dotProduct_mulVec y D x
+      _ = (y ᵥ* Dᵀ) ⬝ᵥ x := by rw [hD.eq]
+      _ = (D *ᵥ y) ⬝ᵥ x := by rw [vecMul_transpose]
+      _ = x ⬝ᵥ (D *ᵥ y) := by rw [dotProduct_comm]
   linarith
 
 lemma mem_span_of_perp {r₁ r₂ x : V3} (hr : Orthonormal ℝ ![WithLp.toLp 2 r₁, WithLp.toLp 2 r₂])
@@ -90,19 +92,20 @@ lemma mem_span_of_perp {r₁ r₂ x : V3} (hr : Orthonormal ℝ ![WithLp.toLp 2 
     rw [hc0, hn1, hy0] at hC
     rw [zero_dotProduct, one_mul, zero_mul, sub_zero] at hC
     exact hC.symm
-  have hyz : y = 0 := dotProduct_star_self_eq_zero.mp hyy
-  rwa [hy, sub_sub, sub_eq_zero] at hyz
+  have hy0 : y = 0 := dotProduct_star_self_eq_zero.mp hyy
+  rw [hy, sub_sub, sub_eq_zero] at hy0
+  exact hy0
 
-lemma dotProduct_sub_smul_one_mulVec_self_eq_zero {E : M3} {r₁ r₂ x : V3}
-    (hr : Orthonormal ℝ ![WithLp.toLp 2 r₁, WithLp.toLp 2 r₂]) (hE : E.IsSymm)
-    (c12 : r₁ ⬝ᵥ (E *ᵥ r₂) = 0)
-    (c11 : r₁ ⬝ᵥ (E *ᵥ r₁) = r₂ ⬝ᵥ (E *ᵥ r₂))
+lemma dotProduct_sub_smul_one_mulVec_self_eq_zero {C : M3} {r₁ r₂ x : V3}
+    (hr : Orthonormal ℝ ![WithLp.toLp 2 r₁, WithLp.toLp 2 r₂]) (hC : C.IsSymm)
+    (c12 : r₁ ⬝ᵥ (C *ᵥ r₂) = 0)
+    (c11 : r₁ ⬝ᵥ (C *ᵥ r₁) = r₂ ⬝ᵥ (C *ᵥ r₂))
     (hx : x = (x ⬝ᵥ r₁) • r₁ + (x ⬝ᵥ r₂) • r₂) :
-    x ⬝ᵥ ((E - (r₁ ⬝ᵥ (E *ᵥ r₁)) • 1) *ᵥ x) = 0 := by
+    x ⬝ᵥ ((C - (r₁ ⬝ᵥ (C *ᵥ r₁)) • 1) *ᵥ x) = 0 := by
   obtain ⟨h11, h22, h12⟩ := dotProduct_eq_of_orthonormal hr
   set a := x ⬝ᵥ r₁
   set b := x ⬝ᵥ r₂
-  set μ := r₁ ⬝ᵥ (E *ᵥ r₁) with hμ
+  set μ := r₁ ⬝ᵥ (C *ᵥ r₁) with hμ
   simp only [sub_mulVec, smul_mulVec, one_mulVec, dotProduct_sub,
     dotProduct_mulVec, dotProduct_smul, smul_eq_mul]
   have hxx : x ⬝ᵥ x = a ^ 2 + b ^ 2 := by
@@ -110,20 +113,20 @@ lemma dotProduct_sub_smul_one_mulVec_self_eq_zero {E : M3} {r₁ r₂ x : V3}
       h22, h12, h11, dotProduct_comm,
       smul_eq_mul, mul_one, mul_zero, add_zero, zero_add]
     ring
-  have hxE : x ⬝ᵥ (E *ᵥ x) = a ^ 2 * μ + b ^ 2 * μ := by
+  have hxC : x ⬝ᵥ (C *ᵥ x) = a ^ 2 * μ + b ^ 2 * μ := by
     rw [hx, hμ]
     simp only [mulVec_add, mulVec_smul, add_dotProduct, smul_dotProduct, smul_eq_mul,
       dotProduct_add, dotProduct_smul, smul_eq_mul]
-    rw [← c11, hE.dotProduct_mulVec_comm (x := r₂) (y := r₁), c12]
+    rw [← c11, hC.dotProduct_mulVec_comm (x := r₂) (y := r₁), c12]
     simp only [mul_zero, add_zero, zero_add]
     ring
-  rw [← dotProduct_mulVec, (hE.dotProduct_mulVec_comm (x := x) (y := x)).symm, hxE, hxx]
+  rw [← dotProduct_mulVec, (hC.dotProduct_mulVec_comm (x := x) (y := x)).symm, hxC, hxx]
   ring
 
 lemma eq_of_vanishesOn_sub_smul_one {D : M3} {n₁ n₂ : V3} {μ₁ μ₂ : ℝ} (h₁₂ : n₁ ⨯₃ n₂ ≠ 0)
     (v₁ : VanishesOn (D - μ₁ • 1) n₁) (v₂ : VanishesOn (D - μ₂ • 1) n₂) :
     μ₁ = μ₂ := by
-  set w := n₁ ⨯₃ n₂
+  set w := n₁ ⨯₃ n₂ with hw
   have hP1 : w ⬝ᵥ n₁ = 0 := by
     rw [dotProduct_comm]
     exact dot_self_cross n₁ n₂
@@ -136,7 +139,7 @@ lemma eq_of_vanishesOn_sub_smul_one {D : M3} {n₁ n₂ : V3} {μ₁ μ₂ : ℝ
     dotProduct_mulVec, dotProduct_smul, smul_eq_mul] at v₁ v₂
   have hwwn0 : w ⬝ᵥ w ≠ 0 := by simp [ne_eq, dotProduct_self_eq_zero, h₁₂]
   have e1 : (μ₁ - μ₂) * (w ⬝ᵥ w) = 0 := by linarith
-  have e2 : μ₁ - μ₂ = 0 := (mul_eq_zero_iff_right hwwn0).mp e1
+  have e2 : μ₁ - μ₂ = 0 := by exact (mul_eq_zero_iff_right hwwn0).mp e1
   linarith
 
 private lemma cross_dot_self_smul_eq (n₁ n₂ x : V3) :
@@ -149,9 +152,6 @@ private lemma cross_dot_self_smul_eq (n₁ n₂ x : V3) :
     · dsimp
       ring
 
--- If a symmetric `D` vanishes on the planes `n₁ᗮ` and `n₂ᗮ`, then up to the factor
--- `‖n₁ × n₂‖⁴` its bilinear form is determined by the single number
--- `(n₁ × (n₁ × n₂)) ⬝ᵥ D (n₂ × (n₁ × n₂))`.
 private lemma smul_bilin_eq_of_vanishesOn_two {D : M3} {n₁ n₂ : V3} (hD : D.IsSymm)
     (v₁ : VanishesOn D n₁) (v₂ : VanishesOn D n₂) (x y : V3) :
     ((n₁ ⨯₃ n₂) ⬝ᵥ (n₁ ⨯₃ n₂)) * ((n₁ ⨯₃ n₂) ⬝ᵥ (n₁ ⨯₃ n₂)) * (x ⬝ᵥ (D *ᵥ y)) =
@@ -176,7 +176,7 @@ private lemma smul_bilin_eq_of_vanishesOn_two {D : M3} {n₁ n₂ : V3} (hD : D.
   have h2bb := bilin_zero_of_vanishesOn hD v₂ hbn2 hbn2
   have κSymm : b ⬝ᵥ (D *ᵥ a) = κ := hD.dotProduct_mulVec_comm (x := b) (y := a)
   have : s * s * (x ⬝ᵥ (D *ᵥ y)) = (s • x) ⬝ᵥ (D *ᵥ (s • y)) := by
-    simp only [mulVec_smul, dotProduct_smul, smul_dotProduct, smul_eq_mul]
+    simp [smul_dotProduct, dotProduct_smul, mulVec_smul, smul_eq_mul]
     ring
   have hx : s • x = (x ⬝ᵥ n₁) • b - (x ⬝ᵥ n₂) • a + (x ⬝ᵥ w) • w :=
     cross_dot_self_smul_eq n₁ n₂ x
@@ -188,8 +188,6 @@ private lemma smul_bilin_eq_of_vanishesOn_two {D : M3} {n₁ n₂ : V3} (hD : D.
     h1wa, h1aw, h1aa, h1ww, h2wb, h2bw, h2bb, κSymm, ← hκ]
   ring
 
--- If `κ (x ⬝ᵥ n₁) (x ⬝ᵥ n₂)` vanishes on the plane `n₃ᗮ` and neither `n₁` nor `n₂` is
--- parallel to `n₃`, then `κ = 0`: test on `u = n₃ × (n₁ × n₃)`, `v = n₃ × (n₂ × n₃)` and `u + v`.
 private lemma eq_zero_of_forall_dot_mul_dot_eq_zero {κ : ℝ} {n₁ n₂ n₃ : V3}
     (h₁₃ : n₁ ⨯₃ n₃ ≠ 0) (h₂₃ : n₂ ⨯₃ n₃ ≠ 0)
     (hP : ∀ x : V3, x ⬝ᵥ n₃ = 0 → κ * ((x ⬝ᵥ n₁) * (x ⬝ᵥ n₂)) = 0) :
@@ -219,7 +217,8 @@ private lemma eq_zero_of_forall_dotProduct_mulVec_eq_zero {D : M3}
   have hij := h (Pi.single i 1) (Pi.single j 1)
   simpa [mulVec_single_one, single_one_dotProduct] using hij
 
-/-- TODO -/
+/-- Given three pairwise non-parallel normal vectors of planes, the quadratic form
+of symmetric `D`, and the vanishing definition for each plane, then `D` is forced to be zero -/
 theorem eq_zero_of_vanishesOn_three {D : M3} {n₁ n₂ n₃ : V3} (hD : D.IsSymm)
     (h₁₂ : n₁ ⨯₃ n₂ ≠ 0) (h₁₃ : n₁ ⨯₃ n₃ ≠ 0) (h₂₃ : n₂ ⨯₃ n₃ ≠ 0)
     (v₁ : VanishesOn D n₁) (v₂ : VanishesOn D n₂) (v₃ : VanishesOn D n₃) :
@@ -236,7 +235,9 @@ theorem eq_zero_of_vanishesOn_three {D : M3} {n₁ n₂ n₃ : V3} (hD : D.IsSym
     have hk := h x x
     linear_combination (1 / 2) * hk - (s * s / 2) * h0
   have hκ0 : κ = 0 := eq_zero_of_forall_dot_mul_dot_eq_zero h₁₃ h₂₃ hP3
-  have hs : s ≠ 0 := cross_dot_cross_ne_zero (v := n₁) (w := n₂) h₁₂
+  have hs : s ≠ 0 := by
+    change w ⬝ᵥ w ≠ 0
+    simp [dotProduct_self_eq_zero, h₁₂]
   refine eq_zero_of_forall_dotProduct_mulVec_eq_zero fun x y => ?_
   have hk := h x y
   rw [hκ0, neg_zero, zero_mul] at hk

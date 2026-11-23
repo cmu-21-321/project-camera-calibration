@@ -1,20 +1,25 @@
 /-
-Copyright (c) 2026 TODO. All rights reserved.
+Copyright (c) 2026 Roman Reddick. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: TODO
+Authors: Roman Reddick
 -/
 module
 
 public import Mathlib.Algebra.Order.Star.Real
 
 /-!
-# TODO: title
+# Params
 
-TODO: one-paragraph summary of this file.
+Key theorem that uses an implicit matrix equality passed in by `Recovery.lean`
+ when it uses this theorem to prove that all entries of the two matrices are equal
+ and thus so are the matrices. Given that these are defined by the params of a camera
+this proves that the params are unique given arbitrary camera inputs.
 
 ## Main results
 
-* `CameraCalibration.params_unique`: TODO
+* `CameraCalibration.params_unique`: Takes in the structure of an implicit
+camera product `K'.Uᵀ * K'.U = c • (K.Uᵀ * K.U)` via many passed in equalities
+representing corresponding matrix entries and uses it to prove that all the entries are equal.
 -/
 
 public section
