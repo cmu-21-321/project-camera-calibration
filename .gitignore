@@ -1,2 +1,8 @@
 /.lake
 .DS_Store
+# LaTeX build files
+report/*.aux
+report/*.log
+report/*.out
+report/*.fls
+report/*.fdb_latexmk

@@ -1,0 +1,315 @@
+\documentclass[10pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{fontspec}
+\usepackage{fancyvrb}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+
+% ---------- Lean code listings ----------
+\directlua{luaotfload.add_fallback("leanfallback",
+  {"file:STIXTwoMath-Regular.otf:mode=harf;"})}
+\setmonofont{DejaVu Sans Mono}[Scale=MatchLowercase]
+\setmonofont{DejaVu Sans Mono}[Scale=MatchLowercase, RawFeature={fallback=leanfallback}]
+\DefineVerbatimEnvironment{leancode}{Verbatim}{frame=single, fontsize=\small,
+  framesep=3mm}
+  
+
+% ---------- Theorem environments ----------
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% ---------- Notation ----------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\T}{^{\mathsf{T}}}
+\newcommand{\lean}[1]{{\ttfamily\let\us\_\def\_{\us\allowbreak}#1}}
+\emergencystretch=3em
+
+\title{Formalizing Uniqueness in Zhang's Camera Calibration}
+\author{Roman Reddick}
+\date{21-321, Fall 2026}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section{Introduction}
+
+Camera calibration needs to happen if you want to find the intrinsics (focal lengths, skew, and principal point) as a matrix $A$ that defines the parameters of a camera. These parameters must be known to make any measurements from images. Zhang's method involves taking photographs of a flat pattern from several different angles, computing homographies for each one, and then solving linear equations for $B=A^{-}{\T} A^{-1}$. It is one of the most widely used camera calibration methods in the world so is used for a variety of purposes across many fields.
+
+This method is only useful if the linear equations can be solved such that $B$ is pinned down up to scale. Zhang claims that in general that 3 non-parallel views are sufficient to do this and gives some rough details but not a full proof from that basic condition. He does provide proof based on the assumption of uniqueness up to scale. The theorem we prove here is that the 3 non-parallel views are sufficient to determine unique camera intrinsics.
+
+The formalization is written in Lean 4 primarily using the Mathlib library along with a few additional definitions. Section 2 will set up the necessary definitions needed to even pose the theorem. Section 3 will outline the main theorem itself and its formalization. Section 4 will detail the proof along with references and key details about the formalization. Section 5 contains exposition about design choices, the file structure of the project, and challenges I ran into along with my experience doing this formalization. Section 6 will just have some short discussion of future direction. 
+
+% =====================================================================
+\section{Mathematical Setup}
+
+\subsection{The camera}
+
+Using the pinhole model of a camera, it is a three by three upper triangular matrix that looks as follows
+\[
+A = \begin{pmatrix} \alpha & \gamma & u_0 \\ 0 & \beta & v_0 \\ 0 & 0 & 1 \end{pmatrix},
+  \qquad \alpha, \beta > 0.
+\]
+This matrix maps points from reality which can be represented as points from $\mathbb{R}^3$ into a 2D plane, by computing $Ax$ up to scale for $x \in \mathbb{R}^3$ as the projection of a point in 3D onto the 2D image created by the camera. The focal scales are $\alpha, \beta$ and must be positive while $\gamma$ is skew and $(u_0,v_0)$ is the principal point.
+
+For this proof, we choose to work with $U=A^{-1}$ which is also an upper triangular matrix that can be written in the form.
+\[
+  U = \begin{pmatrix} a & b & c \\ 0 & d & e \\ 0 & 0 & 1 \end{pmatrix},
+  \qquad a, d > 0.
+\]
+With $a = \frac{1}{\alpha}, d =\frac{1}{\beta}$ which preserves $a, d > 0$. Zhang's matrix $B=A^{-\mathsf{T}}A^{-1}$ is written as $B=U\T U$ and removes the need to handle inverses for most of the formalization or fractions. And due to the existence of a unique inverse, knowing $U$ is equivalent to knowing $A$. We use the \lean{Camera} structure to store the information of $U$ and \lean{Camera.U} builds the matrix. We know that $\det U=ad\neq 0$ so $U$ is invertible (\lean{Camera.det\_U}).
+
+\subsection{Homographies}
+
+The idea of a homography comes from mapping points in 3D with the assumption that $z=0$ so that we are taking a section of points from a plane. So we can say a point $(x,y)$ maps to a point $m$ in the image 
+$$m \sim A \begin{bmatrix} r_1 & r_2 & t\end{bmatrix}\begin{bmatrix} x \\ y \\ 1\end{bmatrix}$$
+
+So we can say for some scale factor $\lambda \neq 0$ that $H=\lambda A \begin{bmatrix} r_1 & r_2 & t\end{bmatrix}$ is a homography. We will usually work with the columns of $H$ as 
+
+\[
+\begin{bmatrix} h_1 & h_2 & h_3 \end{bmatrix} = H = sA \begin{bmatrix} r_1 & r_2 & t\end{bmatrix}
+\]
+
+\begin{definition}[Consistent homography]
+We know $r_1$ and $r_2$ are two columns of a rotation so they must be orthonormal. Then by multiplying by $U$ we get $Uh_1=sr_1$ and $Uh_2=sr_2$ for our $s \neq 0$. This is represented in the Lean definition \lean{ConsistentHomographyPair}. 
+\end{definition}
+
+We leave out $r_3,t$ because they have no bearing on the intrinsics matrix so there is no need to include them in our Lean definition for the homography-related objects. The lean formalization for this comes in the form of structure:
+\begin{leancode}
+@[mk_iff]
+structure ConsistentHomographyPair (K : Camera) (H : M3) (s : ℝ) (r₁ r₂ : V3) : Prop where
+    ne_zero : s ≠ 0
+    orthonormal : Orthonormal ℝ ![WithLp.toLp 2 r₁, WithLp.toLp 2 r₂]
+    mulVec_col_zero : K.U *ᵥ Hᵀ 0 = s • r₁
+    mulVec_col_one : K.U *ᵥ Hᵀ 1 = s • r₂
+\end{leancode}
+
+The pattern plane's normal is $r_1 \times r_2$ and \lean{Camera.normal} computes this definition in camera coordinates as $Uh_1 \times Uh_2=s^2(r_1 \times r_2)$ using a camera $K$ and a homography $H$. So when we make the assumption of non-parallel views it means that the normals as defined here are pairwise non-parallel.
+
+\subsection{Zhang's constraints}
+\begin{definition}[Satisfies]
+    $B$ satisfies the constraints for $H$ if $h_1\T Bh_2=0$ and $h_1\T Bh_1=h_2\T Bh_2$. This is represented in the Lean definition \lean{Satisfies}.
+\end{definition}
+
+We verify in Step 1 of the proof that $B=U\T U$ satisfies these properties. Each view gives a system of linear equations for a symmetric matrix defined up to scale and with 3 views you can solve for $B$ and decompose it to find $A$ which is the desired intrinsics matrix. This formalization proves a sufficient condition such that there is only one matrix $B$ unique up to scale that is a valid satisfactory solution given the views.
+
+% =====================================================================
+\section{Main Theorem}
+
+\begin{theorem}
+  Let $K$ and $K'$ be two cameras and 3 plane views represented by homographies $H_1,H_2,H_3$ that are each consistent with both cameras. If the normals of each of the 3 plane views are pairwise non-parallel (computed from $K$), then $K$ and $K'$ have the same intrinsic matrix.
+\end{theorem}
+
+If the intrinsics of two cameras are equal then they are the same camera. So if 3 homographies are sufficient to have a unique camera intrinsics solution then Zhang's method using this construction won't find multiple solutions to one camera and can output one "true" intrinsics matrix for a calibration (ignoring issues regarding closed forms).
+
+Here is the above theorem formalized in Lean:
+
+\begin{leancode}
+theorem zhang_intrinsics_unique {K K' : Camera} {H₁ H₂ H₃ : M3}
+    (h : ∀ H ∈ [H₁, H₂, H₃], ∃ s r₁ r₂, ConsistentHomographyPair K H s r₁ r₂)
+    (h' : ∀ H ∈ [H₁, H₂, H₃], ∃ s r₁ r₂, ConsistentHomographyPair K' H s r₁ r₂)
+    (h₁₂ : K.normal H₁ ⨯₃ K.normal H₂ ≠ 0) (h₁₃ : K.normal H₁ ⨯₃ K.normal H₃ ≠ 0)
+    (h₂₃ : K.normal H₂ ⨯₃ K.normal H₃ ≠ 0) :
+    K.U⁻¹ = K'.U⁻¹
+\end{leancode}
+
+\lean{h} and \lean{h'} gives us that each $H_i$ is consistent with $K$ and $K'$, respectively for some set of parameters $s,r_1,r_2$ that define the homography. The remaining 3 hypotheses \lean{h₁₂, h₁₃, h₂₃} sufficiently represent our pairwise non-parallel condition by using the correspondence with the cross product of the normal vectors of each plane being nonzero. The conclusion \lean{K.U⁻¹ = K'.U⁻¹} proves that the intrinsics matrices are equal as $A=A'$, proving that the cameras are equal. The main theorem we prove in Part 4 is actually \lean{zhang\_nonparallel\_uniqueness} which just shows that \lean{K.U = K'.U} and then to prove the main theorem it just requires inverting both sides.
+
+% =====================================================================
+\section{Proof}
+
+\subsection{Step 1: the Gram matrix satisfies the constraints}
+\textbf{Claim:} the Gram matrix $B=U\T U$ satisfies both of Zhang's constraints for any consistent homography.
+
+Our definition of consistency gives that $Uh_1=sr_1$ and $Uh_2=sr_2$ where $h_1, h_2$ are the first two columns of $H$. Then $h_i\T Bh_j=(Uh_i) \cdot (Uh_j)=s^2(r_i \cdot r_j)$. We know that $r_1 \perp r_2$ by orthonormality so this gives $h_1\T Bh_2=0$ and $h_1\T Bh_1=s^2=h_2\T Bh_2$ as $s^2(r_i \cdot r_i)=s^2\|r_i\|^2=s^2$ by $\|r_i\|=1$ due to orthonormality.
+
+In Lean this is stated as follows, and the proof uses the lemma
+\lean{gram\_dot}, which says $u\T (U\T U)\, v = (Uu)\cdot(Uv)$:
+\begin{leancode}
+theorem consistent_satisfies {K : Camera} {H : M3} {s : ℝ} {r₁ r₂ : V3}
+    (h : ConsistentHomographyPair K H s r₁ r₂) : Satisfies (K.Uᵀ * K.U) H
+\end{leancode}
+
+\subsection{Step 2: every solution is a multiple of \texorpdfstring{$U\T U$}{U^T U}}
+
+\paragraph{(a) Change of variables.}
+We do the following change of variables because instead of asking whether $B$ is a multiple of $U\T U$ or that $B=\mu U\T U$ we can change this to asking whether $A\T BA=\mu A\T U\T UA=\mu I$ by $A=U^{-1}$. We can define this matrix $C=A\T BA$ and proving $B=\mu U\T U$ is equivalent to proving $C=\mu I$ as $B=U\T (A\T BA)U$ (proven by \lean{Camera.eq\_conj}), or that it is just a multiple of the identity matrix.
+
+Using the properties in the previous part we can rewrite them using $C$ as $h_i=sAr_i$ for $i=1,2$ (use $C(u,v)$ as notation for $u\T Cv$) so
+\begin{align*}
+    h_i\T Bh_j &=(sAr_i)\T B(sAr_j) = s^2r_i\T A\T BAr_j=s^2r_i\T (A\T BA)r_j=s^2r_i\T Cr_j=s^2C(r_i, r_j)
+\end{align*}
+
+Because we are given that $s \neq 0$ then the constraints on $B$ are now
+\begin{align*}
+    C(r_1, r_2) &= 0 \\
+    C(r_1, r_1) &= C(r_2, r_2)
+\end{align*}
+
+In the project this is \lean{conj\_constraints\_of\_satisfies}.
+
+\paragraph{(b) Vanishing on each plane.}
+
+We want to show that $C=\mu I$, given that $C$ is symmetric, so we get the following chain of equivalences:
+$$C =\mu I \iff C(v,v) =  v\T (\mu I)v = \mu \|v\|^2 \text{ for all $v$} \iff v\T (C - \mu I)v =0 \text{ for all $v$}$$
+
+We have that $C(r_1, r_2)=0$ and $C(r_1, r_1) = C(r_2, r_2) = \mu$ then let $D=C- \mu I$ and we can show that $D(r_1,r_2)=0$ and $D(r_1, r_1) = D(r_2, r_2)=0$ as $r_1,r_2$ is an orthonormal basis for the plane so $v\T Dv=0$ for all $v$ in the plane. This is \lean{exists\_vanishesOn\_conj\_sub\_smul\_one}.
+
+We say that a symmetric matrix $D$ "vanishes on" a plane with normal $n$ if $v\T Dv=0$ for all $v \cdot n=0 \iff v \perp n$. In lean we define this idea as
+\begin{leancode}
+def VanishesOn (D : M3) (n : V3) : Prop :=
+    ∀ v : V3, v ⬝ᵥ n = 0 → v ⬝ᵥ (D *ᵥ v) = 0
+\end{leancode}
+
+In this section the plane we want to consider is span$(r_1, r_2)$ whose defining normal vector is $n=r_1 \times r_2$. In lean \lean{K.normal H} and \lean{Camera.normal\_eq} show that the normal pattern plane of $K$ is $s^2(r_1 \times r_2)$ and as $s \neq 0$ then the normal of the plane is $s^2 \cdot n$ so it is the same plane as span$(r_1, r_2)$.
+
+Because the plane is spanned by $r_1,r_2$ then any point on it can be written as a linear combination of the 2 vectors so for any $x \perp n$, there exist $\alpha, \beta$ such that $x = \alpha r_1 + \beta r_2$ where we can show $\alpha =x \cdot r_1$ and $\beta=x \cdot r_2$ by \lean{mem\_span\_of\_perp}. The idea is that $r_1,r_2,n$ are an orthonormal basis ($r_1 \perp r_2$, $r_1 \perp r_1 \times r_2=n$, $r_2 \perp n$). So we can prove that $y=x-\alpha r_1 - \beta r_2$ is perpendicular to all 3 vectors in $\mathbb{R}^3$ which implies that the vector is zero. In the lean proof this is done by proving $r_1 \cdot y=0, r_2 \cdot y=0, n \cdot y=0, y \cdot y=0$ which gives us $y=\vec{0}$.
+
+Then we can perform the following computation:
+$$x\T Cx=\alpha^2 r_1\T Cr_1+2 \alpha \beta r_1\T Cr_2+\beta^2 r_2\T Cr_2=\mu (\alpha^2+\beta^2)=\mu \|x\|^2$$
+
+We get the combined cross term because $C$ is symmetric and we have that $C(r_1,r_2)=0$ so it disappears and then we can simplify to $\mu(\alpha^2+\beta^2)$ as we above defined $C(r_1,r_1)=C(r_2,r_2)=\mu$ then we can prove $\|x\|^2=\alpha^2+\beta^2$ (by $r_1 \perp r_2$ and both unit).
+
+Then it follows that for all $v \perp n$ that $v\T (C -\mu I)v=0$. The lean lemma is 
+\lean{dotProduct\_sub\_smul\_one\_mulVec\_self\_eq\_zero} which can then prove exactly \lean{VanishesOn (C - \mu I) n} which we do with \lean{exists\_vanishesOn\_conj\_sub\_smul\_one}.
+
+\paragraph{(c) The same \texorpdfstring{$\mu$}{mu} for every view.}
+
+With (b) we know for each image view we get, we find some $\mu_i$ such that $C-\mu_i I$ vanishes on the plane $n_i = r_1^i \times r^i_2$. Now we just want to show that $\mu_1=\mu_2=\mu_3$. We know two non-parallel planes intersect at a line so it must fulfill the vanishing condition for both planes which forces both $\mu$'s to be equal.
+
+Consider any two views, call them $n_1, n_2$, then let us create a vector normal to them $w=n_1 \times n_2$ which must be the direction vector of the line on their intersection. We know the views are non-parallel so $w \neq \vec{0}$ so applying (b) we get
+\begin{align*}
+    w\T Cw = \mu_1 \|w\|^2 \qquad w\T Cw = \mu_2 \|w\|^2
+\end{align*}
+Subtracting we can get $(\mu_1 - \mu_2)\|w\|^2=0$ which then implies by $w \neq \vec{0}$ that $\mu_1=\mu_2$. This argument is exactly \lean{eq\_of\_vanishesOn\_sub\_smul\_one}. We can then apply it to the view pairs and use transitivity of equality and call the resulting value $\mu$. Now we have one matrix $D=C- \mu I$ which vanishes on all 3 view planes. We finally must show that $D=\mathbf{0}$.
+
+\paragraph{(d) Three planes force zero.}
+
+
+\begin{lemma}
+  If $D$ is a symmetric matrix and vanishes on 3 pairwise non-parallel planes defined by $n_1,n_2,n_3$ then $D=\mathbf{0}$. This is the statement of \lean{eq\_zero\_of\_vanishesOn\_three}.
+\end{lemma}
+\begin{proof}
+  If $x,y$ lie in the plane where $D$ vanishes then $x\T Dy=0$. This is because $$(x+y)\T D(x+y)-x\T Dx-y\T Dy=2x\T Dy$$ by symmetry. This is \lean{bilin\_zero\_of\_vanishesOn}. And goes as $x,y \perp n$ then $(x+y) \perp n$ so by vanishing then $(x+y)\T D(x+y)=x\T Dx+y\T Dy+x\T Dy+y\T Dx=0$ and by symmetry and vanishing we get $x\T Dx+y\T Dy+2x\T Dy=0$ and both the first 2 terms go to 0 by vanishing so $2x\T Dy =0 \implies x\T Dy=0$.
+
+  Now we can get that two planes will force $D$ to some $\kappa$ so let $w=n_1\times n_2, a=n_1 \times w, b=n_2 \times w$. This means that $a, w$ is in plane 1 and $b,w$ in plane 2. Then we can show that all vectors $x$ can be written as follows
+  $$\|w\|^2x=(x \cdot n_1)b-(x \cdot n_2)a + (x \cdot w)w$$
+  which we prove in \lean{cross\_dot\_self\_smul\_eq}.
+
+  Then we expand $x\T Dy$ using that composition as follows
+  \begin{align*}
+    \|w\|^4x\T Dy &= (\|w\|^2x)\T D(\|w\|^2y)
+  \end{align*}
+  Using \lean{bilin\_zero\_of\_vanishesOn} on combinations of $w \perp n_1, w \perp n_2, a \perp n_1, b \perp n_2$ then we can cancel out everything except for the a-b cross term getting for $\kappa =a\T Db$
+  \begin{align*}
+    \|w\|^4x\T Dy &= -\kappa((x \cdot n_1)(y \cdot n_2) + (x \cdot n_2)(y \cdot n_1))
+  \end{align*}
+  In Lean this is the lemma \lean{smul\_bilin\_eq\_of\_vanishesOn\_two}. We can interpret this as $D$ being a multiple of $n_1n_2\T +n_2n_1\T $.
+
+  Now we just show that a third plane must force $\kappa=0$. Take $y=x$ so that $x \perp n_3$ so by vanishing on $n_3$ we get that for all $x$ on plane 3 that $-\kappa(x\cdot n_1)(x \cdot n_2)=0$. Then we can create vectors $u,v$ such that $u=n_3 \times (n_1 \times n_3)$ and $v=n_3 \times (n_2 \times n_3)$ so both lie in plane 3. From this because the planes are pairwise non-parallel we can show that $u \cdot n_1 \neq 0, v \cdot n_2 \neq 0$. If we assume for sake of contradiction that $\kappa \neq 0$, then because $u,v \perp n_3$, then by vanishing $-\kappa (u\cdot n_1)(u \cdot n_2)=0$ and $-\kappa (v\cdot n_1)(v \cdot n_2)=0$ which implies that $u \perp n_2$ and $v \perp n_1$.
+
+  We also know that $(u+v) \perp n_3$ so then we also get via vanishing that $-\kappa ((u+v)\cdot n_1)((u+v) \cdot n_2)=(u\cdot n_1+v\cdot n_1)(u\cdot n_2 + v \cdot n_2)=0$. $\kappa \neq 0$ so we can just divide it out. But applying our perpendicularity definitions as dot products this gives us $(u \cdot n_1)(v \cdot n_2)=0$ which contradicts both our non-parallel planes assumption ($u \cdot n_1 \neq 0, v \cdot n_2 \neq 0$) thus $\kappa = 0$.
+
+  This is the lemma \lean{eq\_zero\_of\_forall\_dot\_mul\_dot\_eq\_zero}.
+
+  Now we can begin to conclude as this gives a result to the earlier part that 
+  $$\|w\|^4x\T Dy = 0$$
+  As $\kappa=0$ then we can make the whole right side 0 and $w \neq \vec{0}$ means we can divide out the $\|w\|^4$ term for all vectors $x,y$. So $x\T Dy=0$ for all $x,y$ which then implies that $D=\mathbf{0}$ as proven in the short Lean lemma
+\lean{eq\_zero\_of\_forall\_dotProduct\_mulVec\_eq\_zero}. 
+Combining all these steps we prove the final theorem.
+  \begin{leancode}
+theorem eq_zero_of_vanishesOn_three {D : M3} {n₁ n₂ n₃ : V3} (hD : D.IsSymm)
+    (h₁₂ : n₁ ⨯₃ n₂ ≠ 0) (h₁₃ : n₁ ⨯₃ n₃ ≠ 0) (h₂₃ : n₂ ⨯₃ n₃ ≠ 0)
+    (v₁ : VanishesOn D n₁) (v₂ : VanishesOn D n₂) (v₃ : VanishesOn D n₃) :
+    D = 0
+  \end{leancode}
+\end{proof}
+
+  Now if $D=\mathbf{0}$ then because $D=C-\mu I$ we get $C=\mu I$ so then $B=U\T (\mu I)U=\mu U\T  U$ (using \lean{Camera.eq\_conj}) which is \lean{eq\_smul\_gram}.
+
+\subsection{Step 3: the scale is 1}
+\paragraph{1. Putting the pieces together}
+
+The second camera in the situation $K'$ is also consistent with the 3 homographies so using Step 1 we get that the matrix $B={U'}\T U'$ satisfies Zhang's constraints for all 3 views and is also symmetric.
+
+Then using the camera $K$ we apply step 2 to find that ${U'}\T U'=\mu U\T U$ for some $\mu \in \mathbb{R}$. This is the first part of \lean{zhang\_nonparallel\_uniqueness}.
+
+\paragraph{2. Writing the Gram matrix out}
+
+We can now unfold the Gram matrix using \lean{gram\_eq} which gives, based on our matrix definition for $U$:
+\[
+U\T U=\begin{pmatrix} a^2 & ab & ac \\ ab & b^2+d^2 & bc+de \\ ac & bc+de & c^2+e^2+1 \end{pmatrix}
+\]
+
+Comparing the entries of ${U'}\T U'=\mu U\T U$ gives a set of equations we extract in \lean{U\_eq\_of\_gram\_eq\_smul}. We then solve parameter by parameter in \lean{params\_unique} to prove all the entries are equal. The lean lemma involves a lot of uninteresting algebra but the key insight is that the $+1$ term in the bottom right removes the ability to apply arbitrary scale, forcing $\mu=1$.
+
+So then we get $U'=U$ proven by \lean{U\_eq\_of\_gram\_eq\_smul} and then by inverting each side we get $U'^{-1}=U^{-1}$ which proves that the camera intrinsics matrices are equal which proves the Section 3 theorem \lean{zhang\_intrinsics\_unique}.
+
+% =====================================================================
+\section{Formalization}
+
+\subsection{Design choices}
+
+Due to the odd nature of this formalization sitting at the intersection of math and algorithms, designing the best way to formalize was quite tricky. I considered and play-tested a number of representations and design decisions and will just cover the most interesting subset.
+
+The key design choice I made which had the biggest impact on this proof was deciding to represent the camera and all my proofs primarily using $U=A^{-1}$ rather than the intrinsics matrix $A$ itself. Because most of the method is working with $B=A^{-\mathsf{T}}A^{-1}$, if the camera was defined using $A$ then all the math, especially in the gram proofs and unique params would involve fractions and dealing with inverse definitions. Instead by representing the camera as $U$ with non-fractional entries, $U\T U$ becomes a very nice and easy matrix to work with. The additional cost incurred involves still needing to deal with $U^{-1}$ to do the change of variables although more sparsely compared to the direct method. Earlier I had defined a separate \lean{Camera.A} but in a late stage refactor just swapped it over to using the correct inverse definitions. This change of variables made the work significantly easier as it's simpler to prove $U=U'$ and use that to show that $U^{-1}=U'^{-1}$ rather than a direct proof.
+
+Additionally, the \lean{Camera} structure doesn't simply store the values of the inverse of the intrinsics matrix but stores proofs of the positivity of the first 2 diagonal elements. This made accessing this information automatic whenever dealing with the camera structure rather than having to add additional hypotheses. It also makes sense given that they are fundamental constraints for a camera so the camera structure cannot possibly contain an invalid camera.
+
+I formalized the key assumptions about homographies and orthonormality in a single struct with named fields in \lean{ConsistentHomographyPair}. This makes the proofs read clearly and it's easy to both access the named fields while still being able to unpack the definitions. As part of the refactor, I decided to throw in orthonormality into this definition rather than having an additional one to remove bloat and use the mathlib definition of orthonormality while still being able to use my vector definition as \lean{Fin 3 $\to$ $\mathbb{R}$}. 
+
+I decided that for my purposes, switching to using \lean{EuclideanSpace} would make the project significantly more bloated and require packing and unpacking everywhere with the LPs because the cross product needs the \lean{Fin 3} definition. But I only really use the orthonormal definition this one single time and don't need the other lemmas so refactoring with \lean{dotProduct\_eq\_of\_orthonormal} helped save a definition while keeping the formalization understandable and streamlined. For similar reasons we still have the \lean{VanishesOn} definition rather than using \lean{Matrix.toQuadraticMap} which depends on making the previous switch as well. I want to acknowledge that these changes can be made as a potential improvement to the style and could be implemented with AI but I wanted to keep this project for the purposes of this class closer to my realm of understanding and capability.
+
+\subsection{File structure}
+\begin{center}
+\begin{tabular}{@{}lp{5in}@{}}
+  \toprule
+  File & Contents \\
+  \midrule
+  \lean{Basic.lean}     &  Key definitions to formalize the camera, homographies, and other specific parameters
+  \\
+  \lean{Gram.lean}      & Helper lemmas to work with matrix products of the form $U\T U$\\
+  \lean{Satisfies.lean} & Contains \lean{consistent\_satisfies} to prove an instance of \lean{Satisfies} using a consistent pair\\
+  \lean{Plane.lean}     & Proof components for parts (b), (c), and (d) regarding quadratic forms and planes\\
+  \lean{Unique.lean}    & Proves \lean{eq\_smul\_gram} for use in proving the main theorem\\
+  \lean{Params.lean}    & Helper for \lean{Recovery.lean} to prove the expanded matrix product is equivalent\\
+  \lean{Recovery.lean}  & Given gram camera matrices ${U'}\T U'=\mu U\T U$, proves $U=U'$\\
+  \lean{Main.lean}      & Contains the main theorems \lean{zhang\_nonparallel\_uniqueness} and \lean{zhang\_intrinsics\_unique}\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Challenges}
+
+The main challenge in the proof itself came from working on the extension when I moved from a stronger assumption to prove the theorem to just relying on pairwise non-parallel views. Finding the formalization for the $\kappa$ argument was obnoxious and time consuming even with help. This introduced a lot of additional complications about how I wanted to re-format my design specifically in \lean{Basic.lean}. Some of the arguments were quite hard to even work out a proper proof method in addition to formalization. 
+
+Many of the proofs involved tons of rewriting and algebraic manipulation of long lines of dot products, matrix multiplications, etc. It often involved a bit of trial and error with a stack of Mathlib rewrite lemmas for those objects to transform into statements I could work with. A lot of the lemmas I had to write and \lean{have} statements were just about shuffling inverses and transposes around which were surprisingly tricky to deal with.
+
+The proof for \lean{params\_unique} was a nightmare, bookkeeping the square root and dealing with an insane amount of algebra in order to prove that the two matrices that made up the Gram products were equal. In a similar vein to the previous parts, \lean{simp} and \lean{rw} caused problems in the many places I had to use long rewrite or simplification chains. Often they didn't have the impact I desired and I ran into multiple situations where I simplified or rewrote in the wrong order and got stuck in holes which were hard to escape from.
+
+Outside of proof difficulty, it was a large meta-problem to decide how much I should engage with AI tools and to what extent I wanted to use it to refactor and clean up style mistakes I made while still trying to understand as much of the code and what was going on as possible. It was an interesting challenge and I tried my best. I did a large refactor pass at the end mostly to attend to naming conventions and some of the other refactor and definitional changes I mentioned earlier (all of this is detailed in the AI use statement). I do feel like I learned a lot from this project so am overall quite happy with how everything turned out.
+
+\section{Future Work}
+
+I would like to continue working on this formalization project to extend it past the current scope of proving uniqueness to cover other important theorems in computer vision. I want to finish making the formalization more Mathlib-esque and go beyond just proving uniqueness. Given the wide use of this algorithm and these general computer vision methods, formalizing correctness feels important so I will continue tweaking a better structure for formalizing these computer vision tasks. I think my current solution with \lean{Basic.lean} is quite good for the current scope of this project but I might look into publishing something or contributing to CSLib if this is in scope for them.
+
+\begin{thebibliography}{9}
+\bibitem{zhang2000}
+  Z.~Zhang.
+  A flexible new technique for camera calibration.
+  \emph{IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  22(11):1330--1334, 2000.
+\end{thebibliography}
+
+\end{document}
